@@ -137,41 +137,41 @@ namespace RideHailingApp.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> DeclineRide(int rideId, string pickupLat, string pickupLng, string declinedIdsJson)
         {
-            // 1. Chuyển đổi danh sách ID đã từ chối từ JSON sang List
             var excludedIds = JsonSerializer.Deserialize<List<int>>(declinedIdsJson) ?? new List<int>();
 
-            // 2. Thêm ID của tài xế hiện tại vào danh sách loại trừ
             var currentDriverId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
             excludedIds.Add(currentDriverId);
 
-            // LƯU VÀO DATABASE ĐỂ F5 KHÔNG HIỆN LẠI NỮA
             _rideService.MarkRideAsDeclined(rideId, currentDriverId);
 
-            // 3. Tìm tài xế gần nhất tiếp theo
             decimal pLat = decimal.Parse(pickupLat);
             decimal pLng = decimal.Parse(pickupLng);
             var nextDriverId = _rideService.FindNearestAvailableDriver(pLat, pLng, excludedIds);
 
             if (nextDriverId != null)
             {
-                // Lấy thông tin chuyến đi để gửi cho người tiếp theo
-                var ride = _context.Rides.Find(rideId);
+                // BỔ SUNG .Include(r => r.Customer) để lấy được tên khách hàng
+                var ride = _context.Rides.Include(r => r.Customer).FirstOrDefault(r => r.Id == rideId);
 
-                // 4. Bắn SignalR cho tài xế tiếp theo kèm danh sách loại trừ mới
-                await _hubContext.Clients.User(nextDriverId.Value.ToString()).SendAsync(
-                    "ReceiveRideRequest",
-                    ride.Id,
-                    ride.PickupAddress,
-                    ride.DropoffAddress,
-                    ride.Fare,
-                    ride.DistanceKm,
-                    ride.PickupLat,
-                    ride.PickupLng,
-                    JsonSerializer.Serialize(excludedIds) // Gửi kèm danh sách đã từ chối
-                );
+                if (ride != null)
+                {
+                    // Bắn SignalR cho tài xế tiếp theo kèm TÊN KHÁCH HÀNG (Tham số thứ 2)
+                    await _hubContext.Clients.User(nextDriverId.Value.ToString()).SendAsync(
+                        "ReceiveRideRequest",
+                        ride.Id,
+                        ride.Customer.FullName, // Truyền thêm Tên khách
+                        ride.PickupAddress,
+                        ride.DropoffAddress,
+                        ride.Fare,
+                        ride.DistanceKm, // Quãng đường của cuốc xe
+                        ride.PickupLat,
+                        ride.PickupLng,
+                        JsonSerializer.Serialize(excludedIds)
+                    );
+                }
             }
 
-            return Ok(); // Chỉ cần trả về OK vì giao diện sẽ tự đóng Modal
+            return Ok();
         }
     }
 }
