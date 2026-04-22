@@ -1,0 +1,530 @@
+/* =========================================
+   RESET & CƠ BẢN
+   ========================================= */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f6f9; /* Màu nền xám nhạt để làm nổi bật lớp kính */
+    padding-bottom: 80px; /* Chừa không gian cho Bottom Nav */
+}
+
+/* HIỆU ỨNG LIQUID GLASS CỦA IOS */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.7); /* Nền trắng trong suốt 70% */
+    backdrop-filter: blur(15px); /* Làm mờ cảnh phía sau - linh hồn của Liquid Glass */
+    -webkit-backdrop-filter: blur(15px); /* Hỗ trợ Safari/iOS */
+    border: 1px solid rgba(255, 255, 255, 0.5); /* Viền sáng mờ tạo độ bóng */
+    border-radius: 24px; /* Bo tròn góc sâu */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08); /* Đổ bóng mềm mại */
+    overflow: hidden;
+}
+
+/* =========================================
+   FLOATING PILL NAVIGATION BAR
+   ========================================= */
+.floating-nav-container {
+    position: fixed;
+    bottom: 20px; /* Cách đáy 20px tạo cảm giác lơ lửng */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 92%;
+    max-width: 450px;
+    height: 65px;
+    z-index: 1050;
+}
+
+.floating-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* Chia đều 5 cột */
+    height: 100%;
+    /* Giữ lại hiệu ứng kính mờ Liquid Glass */
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50px; /* Bo tròn hoàn toàn dạng viên thuốc */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    padding: 0 8px;
+}
+
+/* Các nút bấm cơ bản */
+.nav-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #6c757d; /* Màu xám tĩnh */
+    font-size: 1.5rem;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    border-radius: 40px;
+    margin: 5px 2px;
+}
+
+    .nav-btn:hover, .nav-btn:focus {
+        background: rgba(255, 255, 255, 0.2);
+        color: #00b14f;
+    }
+
+    /* Trạng thái tab đang được chọn */
+    .nav-btn.active {
+        color: #00b14f;
+        transform: scale(1.15); /* Phóng to nhẹ icon */
+        filter: drop-shadow(0 4px 6px rgba(0, 177, 79, 0.3));
+    }
+
+/* Khối bọc nút trung tâm */
+.nav-center-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Nút Action tròn ở giữa */
+.nav-center-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    color: white !important;
+    font-size: 1.5rem;
+    transition: transform 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    text-decoration: none;
+}
+
+    .nav-center-btn:active {
+        transform: scale(0.9);
+    }
+
+    /* Màu sắc nút trung tâm phân theo Role */
+    .nav-center-btn.bg-success {
+        background: #00b14f;
+        box-shadow: 0 4px 15px rgba(0, 177, 79, 0.4);
+    }
+
+    .nav-center-btn.bg-warning {
+        background: #ffc107;
+        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+    }
+
+    .nav-center-btn.bg-danger {
+        background: #dc3545;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    }
+
+/* Ẩn navbar ở trang Đăng nhập / Đăng ký */
+body.auth-page .floating-nav-container {
+    display: none !important;
+}
+
+/* =========================================
+   BƯỚC 1: TRANG AUTH (ĐĂNG NHẬP / ĐĂNG KÝ)
+   ========================================= */
+
+body.auth-page {
+    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?q=80&w=2000&auto=format&fit=crop') no-repeat center center fixed;
+    background-size: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding-bottom: 0;
+}
+
+.auth-glass-card {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 32px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    margin: auto;
+}
+
+.auth-input-group {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    transition: 0.3s;
+}
+
+    .auth-input-group:focus-within {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: #00b14f;
+        box-shadow: 0 0 10px rgba(0, 177, 79, 0.3);
+    }
+
+    .auth-input-group i {
+        color: white;
+        font-size: 1.2rem;
+        margin-right: 12px;
+    }
+
+    .auth-input-group input, .auth-input-group select {
+        background: transparent !important;
+        border: none !important;
+        color: white !important;
+        outline: none !important;
+        width: 100%;
+    }
+
+        .auth-input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+.btn-liquid {
+    background: #00b14f;
+    border: none;
+    border-radius: 16px;
+    padding: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: 0.3s;
+    color: white;
+}
+
+    .btn-liquid:focus,
+    .btn-liquid:focus-visible,
+    .btn-liquid:active {
+        background: #00b14f !important;
+        color: white !important;
+        outline: none !important;
+        box-shadow: 0 0 0 0.25rem rgba(0, 177, 79, 0.4) !important;
+    }
+
+    .btn-liquid:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 177, 79, 0.4);
+        background: #009642;
+    }
+
+.auth-input-group input:-webkit-autofill,
+.auth-input-group input:-webkit-autofill:hover,
+.auth-input-group input:-webkit-autofill:focus,
+.auth-input-group input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px transparent inset !important;
+    transition: background-color 5000s ease-in-out 0s, box-shadow 5000s ease-in-out 0s !important;
+    -webkit-text-fill-color: white !important;
+    caret-color: white !important;
+}
+
+/* CUSTOM DROPDOWN */
+.auth-input-group .dropdown-toggle::after {
+    display: none;
+}
+
+.dropdown-glass-wrapper {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 12px;
+}
+
+.glass-dropdown-menu {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    padding: 8px 0;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    margin-top: 10px !important;
+}
+
+    .glass-dropdown-menu .dropdown-item {
+        padding: 10px 20px;
+        color: white;
+        transition: 0.3s ease;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+        .glass-dropdown-menu .dropdown-item:hover,
+        .glass-dropdown-menu .dropdown-item:focus {
+            background: rgba(255, 255, 255, 0.3);
+            color: #fff !important;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+        }
+
+/* =========================================
+   BƯỚC 2: CUSTOMER MAP UI (BẢN ĐỒ TRÀN VIỀN)
+   ========================================= */
+
+body.map-page main {
+    padding: 0 !important;
+    max-width: 100%;
+}
+
+.map-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+}
+
+.floating-search-panel {
+    position: fixed;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 92%;
+    max-width: 500px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 15px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    border: 1px solid rgba(255,255,255,0.5);
+}
+
+.map-input-group {
+    display: flex;
+    align-items: center;
+    background: #f1f2f6;
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+}
+
+    .map-input-group input {
+        border: none;
+        background: transparent;
+        width: 100%;
+        outline: none;
+        margin-left: 10px;
+        font-size: 0.95rem;
+    }
+
+.floating-bottom-sheet {
+    position: fixed;
+    bottom: 85px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 600px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 24px 24px 0 0;
+    padding: 20px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
+    display: none;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translate(-50%, 100%);
+    }
+
+    to {
+        transform: translate(-50%, 0);
+    }
+}
+
+/* =========================================
+   BƯỚC 3: DRIVER LIQUID GLASS UI
+   ========================================= */
+
+body.driver-page {
+    background: linear-gradient(45deg, #f3f4f7, #e0e5ec, #ffffff);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.driver-glass-header {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 25px 20px;
+    border-radius: 0 0 32px 32px;
+    margin: -16px -16px 20px -16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.radar-glass-pulse {
+    width: 140px;
+    height: 140px;
+    background: rgba(0, 177, 79, 0.05);
+    border: 1px solid rgba(0, 177, 79, 0.2);
+    border-radius: 50%;
+    margin: 80px auto;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 20px rgba(0, 177, 79, 0.1);
+    animation: pulse-glass 2.5s infinite;
+}
+
+    .radar-glass-pulse i {
+        font-size: 3.5rem;
+        color: #00b14f;
+        filter: drop-shadow(0 0 10px rgba(0, 177, 79, 0.5));
+    }
+
+@keyframes pulse-glass {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 177, 79, 0.4);
+    }
+
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 50px rgba(0, 177, 79, 0);
+    }
+
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 177, 79, 0);
+    }
+}
+
+.driver-bottom-sheet {
+    position: fixed;
+    bottom: -100%;
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px);
+    margin: 0 auto;
+    z-index: 1060;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 32px 32px 20px 20px;
+    padding: 30px 20px;
+    box-shadow: 0 -15px 35px rgba(0, 0, 0, 0.1);
+    transition: bottom 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+    .driver-bottom-sheet.show {
+        bottom: 85px;
+    }
+
+.glass-info-box {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* =========================================
+   BƯỚC 4: ADMIN DASHBOARD UI
+   ========================================= */
+
+body.admin-page {
+    background-color: #f4f7fa;
+    padding-bottom: 90px;
+}
+
+.admin-glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+}
+
+    .admin-glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+    }
+
+.admin-icon-box {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: white;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+}
+
+.bg-grad-primary {
+    background: linear-gradient(135deg, #007bff, #00c6ff);
+}
+
+.bg-grad-success {
+    background: linear-gradient(135deg, #00b14f, #28c76f);
+}
+
+.bg-grad-warning {
+    background: linear-gradient(135deg, #f7b733, #fc4a1a);
+}
+
+.bg-grad-danger {
+    background: linear-gradient(135deg, #f85032, #e73827);
+}
+
+.admin-header-title {
+    font-weight: 800;
+    background: linear-gradient(135deg, #2b2b2b, #6c757d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+
+.profile-input-group {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    transition: 0.3s;
+}
+
+.profile-input-group:focus-within {
+    border-color: #00b14f;
+    box-shadow: 0 0 10px rgba(0, 177, 79, 0.2);
+    background: white;
+}
+
+.profile-input-group i {
+    font-size: 1.2rem;
+    color: #6c757d;
+    margin-right: 15px;
+}
+
+.profile-input-group input {
+    border: none;
+    background: transparent;
+    width: 100%;
+    outline: none;
+    color: #333;
+    font-weight: 500;
+}

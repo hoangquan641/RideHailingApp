@@ -1,0 +1,136 @@
+﻿@model RideHailingApp.Common.DTOs.AdminDashboardDTO
+@{
+    ViewData["Title"] = "Trung tâm Quản trị";
+}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container-fluid mt-3 px-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="admin-header-title mb-0">Tổng Quan</h3>
+            <p class="text-muted small">Cập nhật số liệu hệ thống theo thời gian thực</p>
+        </div>
+        <div class="bg-white p-2 rounded-circle shadow-sm">
+            <i class="bi bi-bell-fill text-warning fs-5"></i>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="admin-glass-card">
+                <div class="admin-icon-box bg-grad-primary mb-3">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <h6 class="text-muted mb-1 fs-7">Khách Hàng</h6>
+                <h3 class="fw-bold text-dark mb-0">@Model.TotalCustomers</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="admin-glass-card">
+                <div class="admin-icon-box bg-grad-success mb-3">
+                    <i class="bi bi-car-front-fill"></i>
+                </div>
+                <h6 class="text-muted mb-1 fs-7">Tài Xế</h6>
+                <h3 class="fw-bold text-dark mb-0">@Model.TotalDrivers</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="admin-glass-card">
+                <div class="admin-icon-box bg-grad-warning mb-3">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <h6 class="text-muted mb-1 fs-7">Chuyến Đi</h6>
+                <h3 class="fw-bold text-dark mb-0">@Model.TotalCompletedRides</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="admin-glass-card">
+                <div class="admin-icon-box bg-grad-danger mb-3">
+                    <i class="bi bi-wallet2"></i>
+                </div>
+                <h6 class="text-muted mb-1 fs-7">Doanh Thu</h6>
+                <h4 class="fw-bold text-dark mb-0 text-truncate">@Model.TotalRevenue.ToString("N0")<span class="fs-6 text-muted">đ</span></h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-8">
+            <div class="admin-glass-card p-4">
+                <h5 class="fw-bold mb-4">Doanh thu 7 ngày qua</h5>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="admin-glass-card p-4">
+                <h5 class="fw-bold mb-4">Quản lý nhanh</h5>
+                <div class="d-grid gap-3">
+                    <button class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
+                        <i class="bi bi-person-lines-fill text-primary me-2"></i> Duyệt hồ sơ tài xế
+                    </button>
+                    <button class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
+                        <i class="bi bi-receipt text-success me-2"></i> Lịch sử chuyến đi
+                    </button>
+                    <button class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
+                        <i class="bi bi-gear-fill text-secondary me-2"></i> Cài đặt hệ thống
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Ép background xám cho riêng trang này
+        document.body.classList.add('admin-page');
+
+        var chartLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartLabels));
+        var chartData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData));
+
+        var ctx = document.getElementById('revenueChart').getContext('2d');
+
+        // Tạo gradient đổ từ đỏ xuống trong suốt
+        var gradientFill = ctx.createLinearGradient(0, 0, 0, 300);
+        gradientFill.addColorStop(0, "rgba(220, 53, 69, 0.4)"); // Màu đỏ mờ ở trên
+        gradientFill.addColorStop(1, "rgba(220, 53, 69, 0.0)"); // Trong suốt ở dưới
+
+        var revenueChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+        labels: chartLabels,
+        datasets: [{
+        label: 'Doanh thu (VNĐ)',
+        data: chartData,
+        backgroundColor: gradientFill,
+        borderColor: '#dc3545', // Đỏ Bootstrap
+        borderWidth: 3,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: '#dc3545',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.4, // Tạo độ cong mượt mà cho đường kẻ
+        fill: true
+        }]
+        },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+        legend: { display: false } // Giấu chú thích thừa
+        },
+        scales: {
+        x: { grid: { display: false } }, // Giấu lưới dọc
+        y: {
+        beginAtZero: true,
+        grid: { borderDash: [5, 5] } // Lưới ngang nét đứt
+        }
+        }
+        }
+        });
+    </script>
+}

@@ -1,0 +1,205 @@
+﻿@model RideHailingApp.Common.DTOs.BookRideDTO
+@{
+    ViewData["Title"] = "Đặt xe";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div id="map" class="map-fullscreen"></div>
+
+<form asp-action="BookRide" method="post" id="bookingForm">
+
+    <div class="floating-search-panel">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 fw-bold text-dark">Bạn muốn đi đâu?</h6>
+            <button type="button" id="resetBtn" class="btn btn-sm btn-light text-secondary rounded-circle" title="Làm mới">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+
+        <div class="position-relative">
+            <div class="map-input-group">
+                <i class="bi bi-geo-alt-fill text-primary"></i>
+                <input asp-for="PickupAddress" id="pickupDisplay" placeholder="Điểm đón của bạn..." autocomplete="off" />
+                <button class="btn btn-sm text-primary" type="button" id="btnGps" title="Vị trí của tôi"><i class="bi bi-crosshair"></i></button>
+            </div>
+            <ul id="searchResults" class="list-group position-absolute w-100 shadow" style="z-index: 1001; display: none; max-height: 200px; overflow-y: auto; top: 45px;"></ul>
+
+            <div style="position: absolute; left: 16px; top: 40px; border-left: 2px dashed #ccc; height: 15px;"></div>
+
+            <div class="map-input-group mb-0">
+                <i class="bi bi-geo-alt-fill text-danger"></i>
+                <input asp-for="DropoffAddress" id="dropoffDisplay" placeholder="Điểm đến..." autocomplete="off" />
+            </div>
+            <ul id="dropoffSearchResults" class="list-group position-absolute w-100 shadow" style="z-index: 1001; display: none; max-height: 200px; overflow-y: auto; top: 100px;"></ul>
+        </div>
+    </div>
+
+    <div class="floating-bottom-sheet" id="bookingSheet">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <span class="text-muted d-block" style="font-size: 0.85rem;">Tổng khoảng cách</span>
+                <span class="fw-bold fs-5"><span id="distDisplay">0</span> km</span>
+            </div>
+            <div class="text-end">
+                <span class="text-muted d-block" style="font-size: 0.85rem;">Tạm tính</span>
+                <span class="fw-bold fs-3 text-success"><span id="fareDisplay">0</span>đ</span>
+            </div>
+        </div>
+
+        <input type="hidden" asp-for="PickupLat" id="pickupLat" />
+        <input type="hidden" asp-for="PickupLng" id="pickupLng" />
+        <input type="hidden" asp-for="DropoffLat" id="dropoffLat" />
+        <input type="hidden" asp-for="DropoffLng" id="dropoffLng" />
+
+        <button type="submit" class="btn btn-liquid w-100 fs-5" id="submitBtn">XÁC NHẬN ĐẶT XE</button>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        // Ép body nhận class map-page để gỡ padding của thẻ main
+        document.body.classList.add('map-page');
+
+        // Khởi tạo bản đồ, chuyển icon Zoom xuống góc phải dưới (để không đè lên search bar)
+        var map = L.map('map', { zoomControl: false }).setView([10.7326, 106.6998], 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OS' }).addTo(map);
+
+        var pickupMarker = null, dropoffMarker = null, routeLine = null;
+        var pickupIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+        var dropoffIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+
+        // Dịch ngược Tọa độ -> Địa chỉ
+        function getAddressFromCoords(lat, lng, isPickup) {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        .then(res => res.json())
+        .then(data => {
+        let address = data.display_name;
+        if (isPickup) document.getElementById('pickupDisplay').value = address;
+        else document.getElementById('dropoffDisplay').value = address;
+        });
+        }
+
+        // Nút Vị trí GPS
+        document.getElementById('btnGps').addEventListener('click', function() {
+        if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+        setPickup(pos.coords.latitude.toFixed(6), pos.coords.longitude.toFixed(6), true);
+        }, function() { alert("Không thể lấy vị trí GPS."); });
+        }
+        });
+
+        // Autocomplete Điểm Đón
+        let typingTimerPickup;
+        document.getElementById('pickupDisplay').addEventListener('input', function() {
+        clearTimeout(typingTimerPickup);
+        let query = this.value;
+        if(query.length < 3) { document.getElementById('searchResults').style.display = 'none'; return; }
+        typingTimerPickup = setTimeout(() => searchLocation(query, 'searchResults', 'selectSuggestedPickup'), 600);
+        });
+
+        window.selectSuggestedPickup = function(lat, lng, name) {
+        document.getElementById('pickupDisplay').value = name;
+        document.getElementById('searchResults').style.display = 'none';
+        setPickup(lat.toFixed(6), lng.toFixed(6), false);
+        };
+
+        function setPickup(lat, lng, fetchAddress) {
+        if(pickupMarker) map.removeLayer(pickupMarker);
+        pickupMarker = L.marker([lat, lng], {icon: pickupIcon}).addTo(map).bindPopup('Điểm đón').openPopup();
+        map.setView([lat, lng], 15);
+        document.getElementById('pickupLat').value = lat;
+        document.getElementById('pickupLng').value = lng;
+        if(fetchAddress) getAddressFromCoords(lat, lng, true);
+        checkAndDrawRoute();
+        }
+
+        // Autocomplete Điểm Đến
+        let typingTimerDropoff;
+        document.getElementById('dropoffDisplay').addEventListener('input', function() {
+        clearTimeout(typingTimerDropoff);
+        let query = this.value;
+        if(query.length < 3) { document.getElementById('dropoffSearchResults').style.display = 'none'; return; }
+        typingTimerDropoff = setTimeout(() => searchLocation(query, 'dropoffSearchResults', 'selectSuggestedDropoff'), 600);
+        });
+
+        window.selectSuggestedDropoff = function(lat, lng, name) {
+        document.getElementById('dropoffDisplay').value = name;
+        document.getElementById('dropoffSearchResults').style.display = 'none';
+        setDropoff(lat.toFixed(6), lng.toFixed(6), false);
+        };
+
+        function setDropoff(lat, lng, fetchAddress) {
+        if(dropoffMarker) map.removeLayer(dropoffMarker);
+        dropoffMarker = L.marker([lat, lng], {icon: dropoffIcon}).addTo(map).bindPopup('Điểm đến').openPopup();
+        document.getElementById('dropoffLat').value = lat;
+        document.getElementById('dropoffLng').value = lng;
+        if(fetchAddress) getAddressFromCoords(lat, lng, false);
+        checkAndDrawRoute();
+        }
+
+        function searchLocation(query, resultUlId, callbackName) {
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&countrycodes=vn`)
+        .then(res => res.json())
+        .then(data => {
+        let html = '';
+        data.forEach(item => {
+        html += `<button type="button" class="list-group-item list-group-item-action" onclick="${callbackName}(${item.lat}, ${item.lon}, '${item.display_name.replace(/'/g, "\\'")}')">${item.display_name}</button>`;
+        });
+        document.getElementById(resultUlId).innerHTML = html;
+        document.getElementById(resultUlId).style.display = 'block';
+        });
+        }
+
+        // Click bản đồ
+        map.on('click', function(e) {
+        let lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
+        if (pickupMarker == null) setPickup(lat, lng, true);
+        else if (dropoffMarker == null) setDropoff(lat, lng, true);
+        });
+
+        // Vẽ đường, tính tiền và HIỆN BOTTOM SHEET
+        function checkAndDrawRoute() {
+        if (pickupMarker != null && dropoffMarker != null) {
+        if(routeLine) map.removeLayer(routeLine);
+        routeLine = L.polyline([pickupMarker.getLatLng(), dropoffMarker.getLatLng()], {color: '#00b14f', weight: 5}).addTo(map);
+
+        // Ép bản đồ lệch xuống dưới một chút để tuyến đường không bị Bottom Sheet che mất
+        map.fitBounds(routeLine.getBounds(), { paddingBottomRight: [0, 200], paddingTopLeft: [0, 100] });
+
+        let dist = calculateDistanceClient(pickupMarker.getLatLng().lat, pickupMarker.getLatLng().lng, dropoffMarker.getLatLng().lat, dropoffMarker.getLatLng().lng);
+        document.getElementById('distDisplay').innerText = dist;
+
+        let fare = 20000;
+        if (dist > 2) fare += (dist - 2) * 10000;
+        document.getElementById('fareDisplay').innerText = Math.round(fare).toLocaleString('vi-VN');
+
+        // BẬT BOTTOM SHEET LÊN
+        document.getElementById('bookingSheet').style.display = 'block';
+        }
+        }
+
+        function calculateDistanceClient(lat1, lon1, lat2, lon2) {
+        var R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        return (R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))).toFixed(2);
+        }
+
+        // Nút Làm mới
+        document.getElementById('resetBtn').addEventListener('click', function() {
+        if(pickupMarker) map.removeLayer(pickupMarker);
+        if(dropoffMarker) map.removeLayer(dropoffMarker);
+        if(routeLine) map.removeLayer(routeLine);
+        pickupMarker = dropoffMarker = routeLine = null;
+        document.getElementById('bookingForm').reset();
+
+        // ẨN BOTTOM SHEET ĐI
+        document.getElementById('bookingSheet').style.display = 'none';
+
+        // Reset lại view map về mặc định
+        map.setView([10.7326, 106.6998], 14);
+        });
+    </script>
+}

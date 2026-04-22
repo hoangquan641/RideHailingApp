@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="RideHailingApp.BLL/RideHailingApp.BLL.csproj" />
+  <Project Path="RideHailingApp.Common/RideHailingApp.Common.csproj" />
+  <Project Path="RideHailingApp.DAL/RideHailingApp.DAL.csproj" />
+  <Project Path="RideHailingApp.Web/RideHailingApp.Web.csproj" />
+</Solution>

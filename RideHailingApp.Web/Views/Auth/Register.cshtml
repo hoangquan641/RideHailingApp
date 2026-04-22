@@ -1,0 +1,74 @@
+﻿@model RideHailingApp.Common.DTOs.RegisterDTO
+@{
+    ViewData["Title"] = "Đăng ký";
+}
+
+<div class="auth-glass-card">
+    <div class="text-center mb-4">
+        <h3 class="text-white fw-bold">Tạo tài khoản</h3>
+        <p class="text-white-50">Gia nhập cộng đồng RideHailing</p>
+    </div>
+
+    <form asp-action="Register" method="post">
+        <div class="auth-input-group">
+            <i class="bi bi-person"></i>
+            <input asp-for="FullName" placeholder="Họ và tên" required />
+        </div>
+
+        <div class="auth-input-group">
+            <i class="bi bi-telephone"></i>
+            <input asp-for="PhoneNumber" placeholder="Số điện thoại" required />
+        </div>
+
+        <div class="auth-input-group">
+            <i class="bi bi-lock"></i>
+            <input asp-for="Password" type="password" placeholder="Mật khẩu" required />
+        </div>
+
+        <div class="auth-input-group position-relative dropdown-glass-wrapper">
+            <i class="bi bi-person-badge"></i>
+
+            <input type="hidden" asp-for="Role" id="RoleInput" required />
+
+            <button class="btn dropdown-toggle w-100 text-start border-0 shadow-none bg-transparent p-0" type="button" id="roleDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                <span id="roleDropdownText" style="color: rgba(255,255,255,0.6);">-- Bạn tham gia với vai trò --</span>
+            </button>
+
+            <ul class="dropdown-menu w-100 glass-dropdown-menu" aria-labelledby="roleDropdownBtn">
+                <li><a class="dropdown-item fw-bold" href="#" data-value="2">Khách hàng (Cần đặt xe)</a></li>
+                <li><a class="dropdown-item fw-bold" href="#" data-value="3">Tài xế (Cần nhận chuyến)</a></li>
+            </ul>
+        </div>
+
+        <button type="submit" class="btn btn-liquid w-100 mt-3">ĐĂNG KÝ NGAY</button>
+    </form>
+
+    <div class="text-center mt-4">
+        <a asp-action="Login" class="text-white-50 text-decoration-none">Đã có tài khoản? <span class="text-white fw-bold">Đăng nhập</span></a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.body.classList.add('auth-page');
+
+        // Logic xử lý cho Custom Dropdown Role
+        document.querySelectorAll('.glass-dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault(); // Ngăn trình duyệt nhảy trang
+                
+                // Lấy giá trị (2 hoặc 3) và chữ hiển thị
+                let val = this.getAttribute('data-value');
+                let text = this.innerText;
+                
+                // 1. Cập nhật giá trị cho thẻ ẩn để Form gửi về Backend
+                document.getElementById('RoleInput').value = val;
+                
+                // 2. Cập nhật chữ hiển thị lên giao diện và đổi màu trắng cho sáng lên
+                let dropdownText = document.getElementById('roleDropdownText');
+                dropdownText.innerText = text;
+                dropdownText.style.color = 'white';
+            });
+        });
+    </script>
+}

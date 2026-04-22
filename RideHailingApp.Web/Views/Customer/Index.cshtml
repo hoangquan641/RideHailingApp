@@ -1,0 +1,18 @@
+﻿@{
+    ViewData["Title"] = "Trang chủ Khách Hàng";
+}
+
+<div class="text-center mt-5">
+    <h2>Chào mừng, @ViewBag.UserName!</h2>
+    <p class="lead">Bạn muốn đi đâu hôm nay?</p>
+    <a asp-controller="Customer" asp-action="BookRide" class="btn btn-primary btn-lg mt-3">
+        <i class="bi bi-geo-alt"></i> Đặt xe ngay
+    </a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success mt-4 text-center">
+        @TempData["Success"]
+    </div>
+}

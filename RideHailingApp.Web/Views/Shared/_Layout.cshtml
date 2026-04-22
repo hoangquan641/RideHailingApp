@@ -1,0 +1,124 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>@ViewData["Title"] - Ride Hailing</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <meta name="theme-color" content="#ffffff">
+</head>
+<body>
+
+    @if (TempData["Success"] != null || TempData["Error"] != null)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+            const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+            });
+
+            @if (TempData["Success"] != null)
+            {
+                <text>
+                    Toast.fire({
+                    icon: 'success',
+                    title: '@Html.Raw(TempData["Success"])'
+                    });
+                </text>
+            }
+
+            @if (TempData["Error"] != null)
+            {
+                <text>
+                    Toast.fire({
+                    icon: 'error',
+                    title: '@Html.Raw(TempData["Error"])'
+                    });
+                </text>
+            }
+            });
+        </script>
+    }
+
+    <main role="main" class="container-fluid p-3 pb-5">
+        @RenderBody()
+    </main>
+
+    @if (User.Identity != null && User.Identity.IsAuthenticated)
+    {
+        <div class="floating-nav-container">
+            <nav class="floating-nav">
+                <a href="/" class="nav-btn">
+                    <i class="bi bi-house-door-fill"></i>
+                </a>
+
+                <a href="#" class="nav-btn">
+                    <i class="bi bi-receipt"></i>
+                </a>
+
+                <div class="nav-center-wrapper">
+                    @if (User.IsInRole("Customer"))
+                    {
+                        <a asp-controller="Customer" asp-action="BookRide" class="nav-center-btn bg-success">
+                            <i class="bi bi-car-front-fill"></i>
+                        </a>
+                    }
+                    else if (User.IsInRole("Driver"))
+                    {
+                        <a asp-controller="Driver" asp-action="Index" class="nav-center-btn bg-warning">
+                            <i class="bi bi-radar"></i>
+                        </a>
+                    }
+                    else if (User.IsInRole("Admin"))
+                    {
+                        <a asp-controller="Admin" asp-action="Index" class="nav-center-btn bg-danger">
+                            <i class="bi bi-pie-chart-fill"></i>
+                        </a>
+                    }
+                </div>
+
+                <a href="#" class="nav-btn">
+                    <i class="bi bi-gear-fill"></i>
+                </a>
+
+                <a asp-controller="Profile" asp-action="Index" class="nav-btn">
+                    <i class="bi bi-person-circle"></i>
+                </a>
+            </nav>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+            const currentPath = window.location.pathname.toLowerCase();
+            const navBtns = document.querySelectorAll('.nav-btn');
+
+            navBtns.forEach(btn => {
+            const href = btn.getAttribute('href').toLowerCase();
+            if (href !== '#' && (currentPath.includes(href) && href !== '/' || (currentPath === '/' && href === '/'))) {
+            btn.classList.add('active');
+            }
+            });
+            });
+        </script>
+    }
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,39 @@
+﻿@model RideHailingApp.Common.DTOs.LoginDTO
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<div class="auth-glass-card">
+    <div class="text-center mb-4">
+        <div class="bg-white d-inline-block p-3 rounded-circle mb-3 shadow">
+            <i class="bi bi-car-front-fill text-success fs-1"></i>
+        </div>
+        <h3 class="text-white fw-bold">Chào mừng trở lại</h3>
+        <p class="text-white-50">Đăng nhập để bắt đầu hành trình</p>
+    </div>
+
+    <form asp-action="Login" method="post">
+        <div class="auth-input-group">
+            <i class="bi bi-telephone"></i>
+            <input asp-for="PhoneNumber" placeholder="Số điện thoại" required />
+        </div>
+
+        <div class="auth-input-group">
+            <i class="bi bi-lock"></i>
+            <input asp-for="Password" type="password" placeholder="Mật khẩu" required />
+        </div>
+
+        <button type="submit" class="btn btn-liquid w-100 mt-3">ĐĂNG NHẬP</button>
+    </form>
+
+    <div class="text-center mt-4">
+        <a asp-action="Register" class="text-white-50 text-decoration-none">Chưa có tài khoản? <span class="text-white fw-bold">Đăng ký</span></a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Kích hoạt hiệu ứng hình nền đặc biệt cho trang Auth
+        document.body.classList.add('auth-page');
+    </script>
+}
