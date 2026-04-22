@@ -42,27 +42,32 @@ namespace RideHailingApp.Web.Controllers
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim != null) model.CustomerId = int.Parse(userIdClaim.Value);
 
+            // Lấy tên khách hàng từ Claim (đã được lưu lúc Login)
+            string customerName = User.Identity.Name ?? "Khách hàng";
+
             if (ModelState.IsValid)
             {
                 // 1. Lưu chuyến đi vào DB
                 var ride = _rideService.BookRide(model);
 
-                // 2. Tìm tài xế gần nhất (Truyền vào danh sách rỗng vì cuốc xe mới tinh, chưa ai từ chối)
+                // 2. Tìm tài xế gần nhất
                 var nearestDriverId = _rideService.FindNearestAvailableDriver(model.PickupLat, model.PickupLng, new List<int>());
 
                 if (nearestDriverId != null)
                 {
-                    // 3. Đẩy thông báo qua SignalR trực tiếp cho tài xế đó, kèm dữ liệu dự phòng
+                    // 3. Đẩy thông báo qua SignalR
+                    // Đã bổ sung biến customerName vào ĐÚNG VỊ TRÍ THAM SỐ THỨ 2
                     await _hubContext.Clients.User(nearestDriverId.Value.ToString()).SendAsync(
                         "ReceiveRideRequest",
                         ride.Id,
+                        customerName,      // <--- Tham số vừa được bổ sung để khớp với Javascript
                         ride.PickupAddress,
                         ride.DropoffAddress,
                         ride.Fare,
                         ride.DistanceKm,
-                        ride.PickupLat,    // Gửi thêm Vĩ độ điểm đón
-                        ride.PickupLng,    // Gửi thêm Kinh độ điểm đón
-                        "[]"               // Gửi danh sách từ chối (hiện tại là rỗng)
+                        ride.PickupLat,
+                        ride.PickupLng,
+                        "[]"
                     );
 
                     TempData["Success"] = "Đang chờ tài xế gần nhất xác nhận...";
