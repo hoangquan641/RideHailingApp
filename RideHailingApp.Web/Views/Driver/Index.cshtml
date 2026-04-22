@@ -28,7 +28,7 @@
     }
     else
     {
-        <h5 class="fw-bold text-dark mb-0">Hệ Thống Điều Phối</h5>
+        <h5 class="fw-bold text-dark mb-0">Hệ Thống Phân Phối</h5>
         <p id="statusText" class="text-muted small mb-0 mt-1">Ngoại tuyến • Hãy bật nhận chuyến</p>
     }
 </div>
@@ -39,7 +39,7 @@
         if (activeRide.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted)
         {
             <div class="text-center">
-                <h5 class="fw-bold mb-3 text-truncate">Điểm đón: @activeRide.PickupAddress</h5>
+                <h5 class="fw-bold mb-3 text-truncate">Đón khách: @activeRide.Customer?.FullName</h5>
                 <form asp-action="ArrivedAtPickup" method="post">
                     <input type="hidden" name="rideId" value="@activeRide.Id" />
                     <button type="submit" class="btn btn-liquid w-100 py-3 rounded-4 fs-5 shadow-lg">
@@ -81,45 +81,49 @@
         <p class="text-muted fw-medium small mb-0">DOANH THU ƯỚC TÍNH (VNĐ)</p>
     </div>
 
-    <div class="glass-info-box mb-4">
+    <div class="glass-info-box mb-3">
         <div class="d-flex align-items-start mb-3">
             <i class="bi bi-person-circle text-info me-3 mt-1 fs-5"></i>
-            <div>
+            <div class="w-100">
                 <small class="text-muted d-block" style="font-size: 0.7rem;">KHÁCH HÀNG</small>
-                <strong class="text-dark fs-6" id="modalCustomerName">...</strong>
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong class="text-dark fs-6" id="modalCustomerName">...</strong>
+                    <span class="text-danger fw-bold small" id="timerDisplay">Tự hủy sau: 15s</span>
+                </div>
             </div>
         </div>
+        <hr class="my-2" style="border-top: 1px dashed rgba(0,0,0,0.1);">
 
-        <div class="d-flex align-items-start mb-3">
+        <div class="d-flex align-items-start mb-3 mt-2">
             <i class="bi bi-geo-alt-fill text-primary me-3 mt-1 fs-5"></i>
-            <div>
+            <div class="w-100">
                 <div class="d-flex justify-content-between align-items-center">
                     <small class="text-muted d-block" style="font-size: 0.7rem;">ĐIỂM ĐÓN</small>
                     <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill" style="font-size: 0.65rem;">
                         Cách bạn <span id="modalDriverToPickupDist">0</span> km
                     </span>
                 </div>
-                <strong class="text-dark" id="modalPickup">...</strong>
+                <strong class="text-dark small" id="modalPickup">...</strong>
             </div>
         </div>
 
         <div class="d-flex align-items-start">
             <i class="bi bi-geo-alt-fill text-danger me-3 mt-1 fs-5"></i>
-            <div>
+            <div class="w-100">
                 <div class="d-flex justify-content-between align-items-center">
                     <small class="text-muted d-block" style="font-size: 0.7rem;">ĐIỂM ĐẾN</small>
                     <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">
                         Chuyến đi <span id="modalRideDist">0</span> km
                     </span>
                 </div>
-                <strong class="text-dark" id="modalDropoff">...</strong>
+                <strong class="text-dark small" id="modalDropoff">...</strong>
             </div>
         </div>
     </div>
 
     <div class="row g-2">
         <div class="col-4">
-            <button type="button" class="btn btn-light w-100 py-3 rounded-4 fw-bold text-secondary" onclick="declineRide()">TỪ CHỐI</button>
+            <button type="button" class="btn btn-light w-100 py-3 rounded-4 fw-bold text-secondary border" onclick="declineRide()">BỎ QUA</button>
         </div>
         <div class="col-8">
             <form asp-action="AcceptRide" method="post" id="acceptForm">
@@ -134,6 +138,7 @@
     <script>
         document.body.classList.add('map-page');
 
+        // Khởi tạo bản đồ
         let map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
@@ -147,9 +152,7 @@
         const hasActiveRide = @((activeRide != null).ToString().ToLower());
         const rideStatus = @((int)(activeRide?.Status ?? RideHailingApp.Common.Enums.RideStatusEnum.Pending));
 
-        // Tọa độ đích đến tùy thuộc vào trạng thái
-        // Nếu đang đi đón (Accepted) -> Vẽ đường tới Pickup
-        // Nếu đang chở khách (InProgress) -> Vẽ đường tới Dropoff
+        // Tọa độ đích đến (Nếu đi đón -> tới Pickup, nếu chở khách -> tới Dropoff)
         const targetLat = rideStatus === 1 ? @(activeRide?.PickupLat ?? 0) : @(activeRide?.DropoffLat ?? 0);
         const targetLng = rideStatus === 1 ? @(activeRide?.PickupLng ?? 0) : @(activeRide?.DropoffLng ?? 0);
 
@@ -159,7 +162,7 @@
         iconAnchor: [20, 20]
         });
 
-        // HÀM THEO DÕI VỊ TRÍ LIÊN TỤC
+        // 1. HÀM THEO DÕI VỊ TRÍ LIÊN TỤC
         function startTracking() {
         if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition(function(position) {
@@ -170,10 +173,10 @@
         driverMarker = L.marker([currentLat, currentLng], { icon: carIcon }).addTo(map);
         map.setView([currentLat, currentLng], 16);
         } else {
-        driverMarker.setLatLng([currentLat, currentLng]); // Di chuyển xe mượt mà
+        driverMarker.setLatLng([currentLat, currentLng]);
         }
 
-        // Gửi tọa độ lên Server
+        // Push vị trí lên Server để hệ thống Dispatcher nắm được
         fetch('/Driver/UpdateLocation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -191,12 +194,10 @@
         }
         }
 
-        // VẼ ĐƯỜNG NẾU CÓ CUỐC XE
+        // 2. VẼ ĐƯỜNG NẾU ĐANG CÓ CUỐC XE
         if (hasActiveRide) {
-        startTracking(); // Bật GPS
-
-        // Marker hiển thị điểm đích
-        L.marker([targetLat, targetLng]).addTo(map).bindPopup(rideStatus === 1 ? "Điểm đón" : "Điểm đến");
+        startTracking();
+        L.marker([targetLat, targetLng]).addTo(map).bindPopup(rideStatus === 1 ? "Điểm đón khách" : "Điểm đến");
 
         routingControl = L.Routing.control({
         waypoints: [
@@ -215,7 +216,7 @@
         });
         }
 
-        // BẬT/TẮT NHẬN CHUYẾN
+        // 3. BẬT/TẮT NHẬN CHUYẾN
         const btnToggle = document.getElementById('btnToggleOnline');
         if(btnToggle) {
         btnToggle.addEventListener('click', function() {
@@ -225,7 +226,7 @@
         startTracking();
         this.innerHTML = '<i class="bi bi-power me-2"></i> DỪNG LÀM VIỆC';
         this.classList.replace('btn-liquid', 'btn-secondary');
-        document.getElementById('statusText').innerText = "Đang trực tuyến • Chờ cuốc xe";
+        document.getElementById('statusText').innerText = "Đang trực tuyến • Chờ hệ thống phân phối";
         document.getElementById('radarGlow').style.animation = 'pulse-glass 2.5s infinite';
         document.getElementById('radarIcon').classList.replace('text-secondary', 'text-success');
         } else {
@@ -239,16 +240,17 @@
         });
         }
 
-        // SIGNALR: LẮNG NGHE CUỐC MỚI (Đã bổ sung customerName và rideDist)
+        // 4. SIGNALR: NHẬN CUỐC TỪ HỆ THỐNG PHÂN PHỐI
         const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
         let currentRideData = { id: 0, lat: 0, lng: 0, declinedIds: "[]" };
+        let rideTimeout;
+        let countdownInterval;
 
         connection.on("ReceiveRideRequest", function (rideId, customerName, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
         if (!isOnline || hasActiveRide) return;
-
         currentRideData = { id: rideId, lat: pLat, lng: pLng, declinedIds: declinedJson };
 
-        // 1. Đổ dữ liệu cơ bản
+        // Đổ dữ liệu ra Popup
         document.getElementById('modalRideId').value = rideId;
         document.getElementById('modalCustomerName').innerText = customerName;
         document.getElementById('modalPickup').innerText = pickup;
@@ -256,21 +258,39 @@
         document.getElementById('modalFare').innerText = fare.toLocaleString('vi-VN');
         document.getElementById('modalRideDist').innerText = rideDist;
 
-        // 2. Tính toán khoảng cách (đường chim bay) từ Vị trí hiện tại của tài xế đến Điểm đón khách
-        // Hàm map.distance trả về số mét, chia 1000 để ra km
-        let distToPickup = (map.distance([currentLat, currentLng], [pLat, pLng]) / 1000).toFixed(1);
+        // Tính khoảng cách Tài xế -> Điểm đón bằng thuật toán nội bộ của Leaflet
+        let distToPickup = 0;
+        if (currentLat !== 0 && currentLng !== 0) {
+        distToPickup = (map.distance([currentLat, currentLng], [pLat, pLng]) / 1000).toFixed(1);
+        }
         document.getElementById('modalDriverToPickupDist').innerText = distToPickup;
 
-        // 3. Hiện Popup và kêu chuông
         document.getElementById('newRideSheet').classList.add('show');
-        audioEl.play().catch(e => console.log("Lỗi phát âm thanh:", e));
+        audioEl.play().catch(e => console.log(e));
+
+        // Bộ đếm ngược 15s
+        let secondsLeft = 15;
+        const timerDisplay = document.getElementById('timerDisplay');
+        timerDisplay.innerText = `Tự hủy sau: ${secondsLeft}s`;
+
+        clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+        secondsLeft--;
+        timerDisplay.innerText = `Tự hủy sau: ${secondsLeft}s`;
+        if(secondsLeft <= 0) clearInterval(countdownInterval);
+        }, 1000);
+
+        clearTimeout(rideTimeout);
+        rideTimeout = setTimeout(() => { declineRide(); }, 15000);
         });
 
         connection.start();
 
+        // 5. TỪ CHỐI / BỎ QUA CUỐC XE
         function declineRide() {
-        audioEl.pause();
+        stopAlarm();
         document.getElementById('newRideSheet').classList.remove('show');
+        // Gửi API về hệ thống phân phối để đẩy cho tài xế khác
         fetch('/Driver/DeclineRide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -282,5 +302,14 @@
         })
         });
         }
+
+        function stopAlarm() {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        clearTimeout(rideTimeout);
+        clearInterval(countdownInterval);
+        }
+
+        document.getElementById('acceptForm').addEventListener('submit', stopAlarm);
     </script>
 }
