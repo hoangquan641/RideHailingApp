@@ -1,35 +1,34 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using RideHailingApp.BLL.Services;
 using RideHailingApp.Common.DTOs;
-using System.Security.Claims;
-using Microsoft.AspNetCore.SignalR;
+using RideHailingApp.DAL.Data; // Thêm thư viện này
 using RideHailingApp.Web.Hubs;
-using System.Collections.Generic; // Cần thiết để dùng List<int>
+using System.Security.Claims;
 
 namespace RideHailingApp.Web.Controllers
 {
-    // Yêu cầu đăng nhập
     [Authorize]
     public class CustomerController : Controller
     {
         private readonly IRideService _rideService;
         private readonly IHubContext<RideHub> _hubContext;
+        private readonly ApplicationDbContext _context; // Bổ sung DbContext
 
-        public CustomerController(IRideService rideService, IHubContext<RideHub> hubContext)
+        public CustomerController(IRideService rideService, IHubContext<RideHub> hubContext, ApplicationDbContext context)
         {
             _rideService = rideService;
             _hubContext = hubContext;
+            _context = context;
         }
 
-        // Trang chủ của Khách hàng
         public IActionResult Index()
         {
             ViewBag.UserName = User.Identity.Name;
             return View();
         }
 
-        // --- ĐẶT XE ---
         [HttpGet]
         public IActionResult BookRide()
         {
@@ -42,25 +41,25 @@ namespace RideHailingApp.Web.Controllers
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim != null) model.CustomerId = int.Parse(userIdClaim.Value);
 
-            // Lấy tên khách hàng từ Claim (đã được lưu lúc Login)
             string customerName = User.Identity.Name ?? "Khách hàng";
+
+            // Lấy số điện thoại từ Database
+            var customer = _context.Users.Find(model.CustomerId);
+            string customerPhone = customer != null ? customer.PhoneNumber : "Đang cập nhật";
 
             if (ModelState.IsValid)
             {
-                // 1. Lưu chuyến đi vào DB
                 var ride = _rideService.BookRide(model);
-
-                // 2. Tìm tài xế gần nhất
                 var nearestDriverId = _rideService.FindNearestAvailableDriver(model.PickupLat, model.PickupLng, new List<int>());
 
                 if (nearestDriverId != null)
                 {
-                    // 3. Đẩy thông báo qua SignalR
-                    // Đã bổ sung biến customerName vào ĐÚNG VỊ TRÍ THAM SỐ THỨ 2
+                    // Đẩy SignalR với 10 tham số (Thêm customerPhone vào vị trí số 3)
                     await _hubContext.Clients.User(nearestDriverId.Value.ToString()).SendAsync(
                         "ReceiveRideRequest",
                         ride.Id,
-                        customerName,      // <--- Tham số vừa được bổ sung để khớp với Javascript
+                        customerName,
+                        customerPhone,     // <--- SỐ ĐIỆN THOẠI
                         ride.PickupAddress,
                         ride.DropoffAddress,
                         ride.Fare,

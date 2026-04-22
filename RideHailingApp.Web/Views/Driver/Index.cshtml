@@ -87,7 +87,10 @@
             <div class="w-100">
                 <small class="text-muted d-block" style="font-size: 0.7rem;">KHÁCH HÀNG</small>
                 <div class="d-flex justify-content-between align-items-center">
-                    <strong class="text-dark fs-6" id="modalCustomerName">...</strong>
+                    <div>
+                        <strong class="text-dark fs-6 d-block" id="modalCustomerName">...</strong>
+                        <small class="text-secondary fw-medium" id="modalCustomerPhone"><i class="bi bi-telephone-fill"></i> ...</small>
+                    </div>
                     <span class="text-danger fw-bold small" id="timerDisplay">Tự hủy sau: 15s</span>
                 </div>
             </div>
@@ -246,19 +249,24 @@
         let rideTimeout;
         let countdownInterval;
 
-        connection.on("ReceiveRideRequest", function (rideId, customerName, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
+        // Bổ sung tham số customerPhone vào vị trí số 3
+        connection.on("ReceiveRideRequest", function (rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
         if (!isOnline || hasActiveRide) return;
         currentRideData = { id: rideId, lat: pLat, lng: pLng, declinedIds: declinedJson };
 
         // Đổ dữ liệu ra Popup
         document.getElementById('modalRideId').value = rideId;
         document.getElementById('modalCustomerName').innerText = customerName;
+
+        // Gán số điện thoại
+        document.getElementById('modalCustomerPhone').innerHTML = `<i class="bi bi-telephone-fill me-1"></i> ${customerPhone}`;
+
         document.getElementById('modalPickup').innerText = pickup;
         document.getElementById('modalDropoff').innerText = dropoff;
         document.getElementById('modalFare').innerText = fare.toLocaleString('vi-VN');
         document.getElementById('modalRideDist').innerText = rideDist;
 
-        // Tính khoảng cách Tài xế -> Điểm đón bằng thuật toán nội bộ của Leaflet
+        // Tính khoảng cách Tài xế -> Điểm đón
         let distToPickup = 0;
         if (currentLat !== 0 && currentLng !== 0) {
         distToPickup = (map.distance([currentLat, currentLng], [pLat, pLng]) / 1000).toFixed(1);

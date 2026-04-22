@@ -160,6 +160,7 @@ namespace RideHailingApp.Web.Controllers
                         "ReceiveRideRequest",
                         ride.Id,
                         ride.Customer.FullName, // Truyền thêm Tên khách
+                        ride.Customer.PhoneNumber,
                         ride.PickupAddress,
                         ride.DropoffAddress,
                         ride.Fare,
