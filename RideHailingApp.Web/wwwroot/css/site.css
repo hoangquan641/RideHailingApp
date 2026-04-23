@@ -21,62 +21,6 @@ body {
 /* =========================================
    FLOATING PILL NAVIGATION BAR
    ========================================= */
-.floating-nav-container {
-    position: fixed;
-    bottom: 20px; /* Cách đáy 20px tạo cảm giác lơ lửng */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 92%;
-    max-width: 450px;
-    height: 65px;
-    z-index: 1050;
-}
-
-.floating-nav {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr); /* Chia đều 5 cột */
-    height: 100%;
-    /* Giữ lại hiệu ứng kính mờ Liquid Glass */
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 50px; /* Bo tròn hoàn toàn dạng viên thuốc */
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    padding: 0 8px;
-}
-
-/* Các nút bấm cơ bản */
-.nav-btn {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #6c757d; /* Màu xám tĩnh */
-    font-size: 1.5rem;
-    transition: all 0.2s ease-in-out;
-    text-decoration: none;
-    border-radius: 40px;
-    margin: 5px 2px;
-}
-
-    .nav-btn:hover, .nav-btn:focus {
-        background: rgba(255, 255, 255, 0.2);
-        color: #00b14f;
-    }
-
-    /* Trạng thái tab đang được chọn */
-    .nav-btn.active {
-        color: #00b14f;
-        transform: scale(1.15); /* Phóng to nhẹ icon */
-        filter: drop-shadow(0 4px 6px rgba(0, 177, 79, 0.3));
-    }
-
-/* Khối bọc nút trung tâm */
-.nav-center-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
 
 /* Nút Action tròn ở giữa */
 .nav-center-btn {
@@ -92,30 +36,26 @@ body {
     text-decoration: none;
 }
 
-    .nav-center-btn:active {
-        transform: scale(0.9);
-    }
-
-    /* Màu sắc nút trung tâm phân theo Role */
-    .nav-center-btn.bg-success {
-        background: #00b14f;
-        box-shadow: 0 4px 15px rgba(0, 177, 79, 0.4);
-    }
-
-    .nav-center-btn.bg-warning {
-        background: #ffc107;
-        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
-    }
-
-    .nav-center-btn.bg-danger {
-        background: #dc3545;
-        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
-    }
-
-/* Ẩn navbar ở trang Đăng nhập / Đăng ký */
-body.auth-page .floating-nav-container {
-    display: none !important;
+.nav-center-btn:active {
+    transform: scale(0.9);
 }
+
+/* Màu sắc nút trung tâm phân theo Role */
+.nav-center-btn.bg-success {
+    background: #00b14f;
+    box-shadow: 0 4px 15px rgba(0, 177, 79, 0.4);
+}
+
+.nav-center-btn.bg-warning {
+    background: #ffc107;
+    box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+}
+
+.nav-center-btn.bg-danger {
+    background: #dc3545;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
 
 /* =========================================
    BƯỚC 1: TRANG AUTH (ĐĂNG NHẬP / ĐĂNG KÝ)

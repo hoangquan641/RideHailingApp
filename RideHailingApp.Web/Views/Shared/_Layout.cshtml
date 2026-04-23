@@ -11,6 +11,118 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <meta name="theme-color" content="#ffffff">
+
+    <style>
+        /* Khung bao bọc thanh điều hướng */
+        .liquid-nav-wrapper {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1050;
+        border-radius: 40px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 0 20px rgba(0,0,0,0.05);
+        overflow: hidden;
+        width: max-content;
+        }
+
+        /* Các lớp cấu thành hiệu ứng Kính lỏng */
+        .liquidGlass-effect {
+        position: absolute;
+        inset: 0;
+        backdrop-filter: blur(22px) saturate(180%);
+        -webkit-backdrop-filter: blur(22px) saturate(180%);
+        filter: url(#glass-distortion);
+        background: rgba(255, 255, 255, 0.45);
+        }
+
+        .liquidGlass-tint {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.05));
+        }
+
+        .liquidGlass-shine {
+        position: absolute;
+        inset: 0;
+        box-shadow: inset 2px 2px 6px rgba(255,255,255,0.6), inset -2px -2px 6px rgba(255,255,255,0.2);
+        border-radius: 40px;
+        }
+
+        /* Container chứa các nút (Dock) */
+        .dock {
+        display: flex;
+        gap: 12px;
+        padding: 10px 18px;
+        position: relative;
+        z-index: 3;
+        align-items: center;
+        margin: 0;
+        }
+
+        /* Nút cơ bản */
+        .icon {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        color: #6c757d;
+        font-size: 1.4rem;
+        text-decoration: none;
+        transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        }
+
+        .icon:hover {
+        color: #35a898;
+        transform: translateY(-4px);
+        }
+
+        /* TRẠNG THÁI ACTIVE GIỐNG ẢNH BẠN YÊU CẦU */
+        .icon.active {
+        background: linear-gradient(135deg, #6ae3d9, #35a898); /* Dải màu Ngọc bích (Teal/Cyan) */
+        color: white !important;
+        transform: translateY(-5px); /* Nổi lên trên */
+        box-shadow: 0 8px 16px rgba(53, 168, 152, 0.45), 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Custom riêng cho nút Center nếu đang Active (để phân biệt màu Role) */
+        .icon.center-btn.active.bg-success {
+        background: linear-gradient(135deg, #00b14f, #28c76f) !important;
+        box-shadow: 0 8px 16px rgba(0, 177, 79, 0.4);
+        }
+
+        .icon.center-btn.active.bg-warning {
+        background: linear-gradient(135deg, #ffc107, #ff9800) !important;
+        box-shadow: 0 8px 16px rgba(255, 193, 7, 0.4);
+        }
+
+        .icon.center-btn.active.bg-danger {
+        background: linear-gradient(135deg, #dc3545, #f85032) !important;
+        box-shadow: 0 8px 16px rgba(220, 53, 69, 0.4);
+        }
+
+        /* Hiệu ứng gợn sóng (Ripple) */
+        .ripple {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate(-50%, -50%) scale(0);
+        background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+        mix-blend-mode: overlay;
+        animation: rippleAnim 0.6s ease-out forwards;
+        }
+
+        @@keyframes rippleAnim {
+        to {
+        transform: translate(-50%, -50%) scale(4);
+        opacity: 0;
+        }
+        }
+    </style>
 </head>
 <body>
 
@@ -32,99 +144,128 @@
 
             @if (TempData["Success"] != null)
             {
-                <text>
-                    Toast.fire({
-                    icon: 'success',
-                    title: '@Html.Raw(TempData["Success"])'
-                    });
-                </text>
+                <text>Toast.fire({ icon: 'success', title: '@Html.Raw(TempData["Success"])' });</text>
             }
 
             @if (TempData["Error"] != null)
             {
-                <text>
-                    Toast.fire({
-                    icon: 'error',
-                    title: '@Html.Raw(TempData["Error"])'
-                    });
-                </text>
+                <text>Toast.fire({ icon: 'error', title: '@Html.Raw(TempData["Error"])' });</text>
             }
             });
         </script>
     }
 
-    <main role="main" class="container-fluid p-3 pb-5">
+    <main role="main" class="container-fluid p-3 pb-5 mb-4">
         @RenderBody()
     </main>
 
     @if (User.Identity != null && User.Identity.IsAuthenticated)
     {
-        <div class="floating-nav-container">
-            <nav class="floating-nav">
-                <a href="/" class="nav-btn">
+        <div class="liquid-nav-wrapper">
+            <div class="liquidGlass-effect"></div>
+            <div class="liquidGlass-tint"></div>
+            <div class="liquidGlass-shine"></div>
+
+            <nav class="dock" id="dock">
+                <a href="/" class="icon nav-btn">
                     <i class="bi bi-house-door-fill"></i>
                 </a>
 
-                <a href="#" class="nav-btn">
-                    <i class="bi bi-receipt"></i>
-                </a>
-
-                <div class="nav-center-wrapper">
-                    @if (User.IsInRole("Customer"))
-                    {
-                        <a asp-controller="Customer" asp-action="BookRide" class="nav-center-btn bg-success">
-                            <i class="bi bi-car-front-fill"></i>
-                        </a>
-                    }
-                    else if (User.IsInRole("Driver"))
-                    {
-                        <a asp-controller="Driver" asp-action="Index" class="nav-center-btn bg-warning">
-                            <i class="bi bi-radar"></i>
-                        </a>
-                    }
-                    else if (User.IsInRole("Admin"))
-                    {
-                        <a asp-controller="Admin" asp-action="Index" class="nav-center-btn bg-danger">
-                            <i class="bi bi-pie-chart-fill"></i>
-                        </a>
-                    }
-                </div>
-
-                <a href="#" class="nav-btn">
-                    <i class="bi bi-gear-fill"></i>
+                <a href="#" class="icon nav-btn">
+                    <i class="bi bi-clock-fill"></i>
                 </a>
 
                 @if (User.IsInRole("Customer"))
                 {
-                    <a asp-controller="Customer" asp-action="Profile" class="nav-btn">
-                        <i class="bi bi-person-circle"></i>
+                    <a asp-controller="Customer" asp-action="BookRide" class="icon nav-btn center-btn bg-success text-white">
+                        <i class="bi bi-car-front-fill"></i>
                     </a>
                 }
                 else if (User.IsInRole("Driver"))
                 {
-                    <a asp-controller="Driver" asp-action="Profile" class="nav-btn">
-                        <i class="bi bi-person-circle"></i>
+                    <a asp-controller="Driver" asp-action="Index" class="icon nav-btn center-btn bg-warning text-white">
+                        <i class="bi bi-radar"></i>
                     </a>
                 }
                 else if (User.IsInRole("Admin"))
                 {
-                    <a asp-controller="Admin" asp-action="Profile" class="nav-btn">
-                        <i class="bi bi-person-circle"></i>
+                    <a asp-controller="Admin" asp-action="Index" class="icon nav-btn center-btn bg-danger text-white">
+                        <i class="bi bi-pie-chart-fill"></i>
                     </a>
                 }
+
+                <a href="#" class="icon nav-btn">
+                    <i class="bi bi-bell-fill"></i>
+                </a>
+
+                @if (User.IsInRole("Customer"))
+                {
+                    <a asp-controller="Customer" asp-action="Profile" class="icon nav-btn">
+                        <i class="bi bi-person-fill"></i>
+                    </a>
+                }
+                else if (User.IsInRole("Driver"))
+                {
+                    <a asp-controller="Driver" asp-action="Profile" class="icon nav-btn">
+                        <i class="bi bi-person-fill"></i>
+                    </a>
+                }
+                else if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Admin" asp-action="Profile" class="icon nav-btn">
+                        <i class="bi bi-person-fill"></i>
+                    </a>
+                }
+
             </nav>
         </div>
+
+        <svg style="display:none">
+            <filter id="glass-distortion">
+                <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" />
+                <feDisplacementMap in="SourceGraphic" scale="30" />
+            </filter>
+        </svg>
 
         <script>
             document.addEventListener('DOMContentLoaded', () => {
             const currentPath = window.location.pathname.toLowerCase();
             const navBtns = document.querySelectorAll('.nav-btn');
 
+            // 1. Phân tích URL để Set Active
+            let activeSet = false;
             navBtns.forEach(btn => {
             const href = btn.getAttribute('href').toLowerCase();
             if (href !== '#' && (currentPath.includes(href) && href !== '/' || (currentPath === '/' && href === '/'))) {
             btn.classList.add('active');
+            activeSet = true;
             }
+            });
+
+            if (!activeSet && navBtns.length > 0) {
+            navBtns[0].classList.add('active');
+            }
+
+            // 2. Xử lý sự kiện Click (Ripple & Active Ảo)
+            navBtns.forEach(icon => {
+            icon.addEventListener("click", function(e) {
+            // Tạo gợn sóng
+            const ripple = document.createElement("span");
+            ripple.className = "ripple";
+            const rect = icon.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left) + "px";
+            ripple.style.top = (e.clientY - rect.top) + "px";
+            ripple.style.width = ripple.style.height = "70px";
+
+            icon.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+
+            // Nếu là link '#' (chưa có chức năng), active ảo để Demo
+            if(icon.getAttribute('href') === '#') {
+            navBtns.forEach(i => i.classList.remove("active"));
+            icon.classList.add("active");
+            }
+            });
             });
             });
         </script>
@@ -148,7 +289,6 @@
 
             globalConnection.on("ReceiveRideRequest", function (rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
 
-            // Lưu cuốc xe vào bộ nhớ đệm trước khi chuyển trang
             const pendingRide = {
             rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson,
             timestamp: new Date().getTime()
@@ -183,7 +323,6 @@
             if (result.isConfirmed) {
             window.location.href = '/Driver/Index';
             } else {
-            // Nếu bấm bỏ qua, xóa bộ nhớ đệm để không hiện lại
             localStorage.removeItem('pendingRideRequest');
             }
             });
