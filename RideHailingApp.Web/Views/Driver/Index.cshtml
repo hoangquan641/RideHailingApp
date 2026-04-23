@@ -9,6 +9,49 @@
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
 
+<style>
+
+    /* Animation ngăn kéo trượt cho khối nội dung */
+    #activeRideContent {
+    transition: max-height 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease, margin-top 0.4s ease;
+    max-height: 800px;
+    opacity: 1;
+    overflow: hidden;
+    }
+
+    #activeRideContent.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    }
+
+    /* Animation cho thanh gạt */
+    .drag-handle {
+    transition: transform 0.4s ease, background-color 0.4s ease;
+    }
+
+    .drag-handle.collapsed {
+    transform: scaleX(0.5);
+    background-color: #00b14f !important;
+    }
+
+    /* Hiệu ứng nút bấm */
+    .btn-effect {
+    transition: all 0.2s ease;
+    }
+
+    .btn-effect:hover {
+    transform: translateY(-2px);
+    background: #0d39fd !important;
+    }
+
+    .btn-effect:active {
+    transform: translateY(1px);
+    background: #0b2fcc !important;
+    }
+</style>
+
 <audio id="notificationSound" src="~/sounds/ringtone.mp3" preload="auto" loop></audio>
 
 <div id="map" class="map-fullscreen"></div>
@@ -36,30 +79,64 @@
 <div class="floating-bottom-sheet" id="driverControlPanel" style="display: block;">
     @if (activeRide != null)
     {
-        if (activeRide.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted)
-        {
-            <div class="text-center">
-                <h5 class="fw-bold mb-3 text-truncate">Đón khách: @activeRide.Customer?.FullName</h5>
+        <div class="text-center mb-1 py-2" onclick="toggleActiveRidePanel()" style="cursor: pointer;">
+            <div id="dragHandle" class="drag-handle" style="width: 50px; height: 6px; background: #dee2e6; border-radius: 10px; margin: 0 auto;"></div>
+        </div>
+
+        <div id="activeRideContent" class="mt-2">
+            <div class="text-center mb-3">
+                <span class="badge bg-success rounded-pill px-3 py-2 mb-2">
+                    @(activeRide.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ? "ĐANG ĐI ĐÓN" : "ĐANG CHỞ KHÁCH")
+                </span>
+                <h1 class="text-success fw-bold display-4 mb-0">@activeRide.Fare.ToString("N0")</h1>
+                <p class="text-muted fw-medium small mb-0">DOANH THU (VNĐ)</p>
+            </div>
+
+            <div class="glass-info-box mb-3">
+                <div class="d-flex align-items-start mb-3">
+                    <i class="bi bi-person-circle text-info me-3 mt-1 fs-5"></i>
+                    <div class="w-100">
+                        <small class="text-muted d-block" style="font-size: 0.7rem;">KHÁCH HÀNG</small>
+                        <strong class="text-dark fs-6 d-block">@activeRide.Customer?.FullName</strong>
+                        <small class="text-secondary fw-medium"><i class="bi bi-telephone-fill"></i> @(activeRide.Customer?.PhoneNumber ?? "Đang cập nhật")</small>
+                    </div>
+                </div>
+                <hr class="my-2" style="border-top: 1px dashed rgba(0,0,0,0.1);">
+                <div class="d-flex align-items-start mb-3 mt-2">
+                    <i class="bi bi-geo-alt-fill text-primary me-3 mt-1 fs-5"></i>
+                    <div class="w-100">
+                        <small class="text-muted d-block" style="font-size: 0.7rem;">ĐIỂM ĐÓN</small>
+                        <strong class="text-dark small">@activeRide.PickupAddress</strong>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-geo-alt-fill text-danger me-3 mt-1 fs-5"></i>
+                    <div class="w-100">
+                        <small class="text-muted d-block" style="font-size: 0.7rem;">ĐIỂM ĐẾN</small>
+                        <strong class="text-dark small">@activeRide.DropoffAddress</strong>
+                    </div>
+                </div>
+            </div>
+
+            @if (activeRide.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted)
+            {
                 <form asp-action="ArrivedAtPickup" method="post">
                     <input type="hidden" name="rideId" value="@activeRide.Id" />
-                    <button type="submit" class="btn btn-liquid w-100 py-3 rounded-4 fs-5 shadow-lg">
+                    <button type="submit" class="btn btn-liquid w-100 py-3 rounded-4 fs-5 fw-bold">
                         <i class="bi bi-geo-fill me-2"></i> ĐÃ TỚI ĐIỂM ĐÓN
                     </button>
                 </form>
-            </div>
-        }
-        else if (activeRide.Status == RideHailingApp.Common.Enums.RideStatusEnum.InProgress)
-        {
-            <div class="text-center">
-                <h5 class="fw-bold mb-3 text-truncate">Điểm đến: @activeRide.DropoffAddress</h5>
+            }
+            else
+            {
                 <form asp-action="CompleteRide" method="post">
                     <input type="hidden" name="rideId" value="@activeRide.Id" />
-                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4 fs-5 shadow-lg border-0" style="background: #0d6efd;">
+                    <button type="submit" class="btn btn-effect w-100 py-3 rounded-4 fs-5 fw-bold text-white" style="background: #0d6efd;">
                         <i class="bi bi-check-circle-fill me-2"></i> HOÀN THÀNH CHUYẾN
                     </button>
                 </form>
-            </div>
-        }
+            }
+        </div>
     }
     else
     {
@@ -67,7 +144,7 @@
             <div class="radar-glass-pulse mb-4" id="radarGlow" style="animation: none; margin: 20px auto;">
                 <i class="bi bi-car-front-fill text-secondary" id="radarIcon" style="filter: none;"></i>
             </div>
-            <button id="btnToggleOnline" class="btn btn-liquid w-100 py-3 rounded-4 fs-5 shadow-lg">
+            <button id="btnToggleOnline" class="btn btn-liquid w-100 py-3 rounded-4 fs-5 fw-bold">
                 <i class="bi bi-power me-2"></i> BẬT NHẬN CHUYẾN
             </button>
         </div>
@@ -152,12 +229,14 @@
         let watchId = null;
 
         const audioEl = document.getElementById('notificationSound');
-        const hasActiveRide = @((activeRide != null).ToString().ToLower());
-        const rideStatus = @((int)(activeRide?.Status ?? RideHailingApp.Common.Enums.RideStatusEnum.Pending));
 
-        // Tọa độ đích đến (Nếu đi đón -> tới Pickup, nếu chở khách -> tới Dropoff)
-        const targetLat = rideStatus === 1 ? @(activeRide?.PickupLat ?? 0) : @(activeRide?.DropoffLat ?? 0);
-        const targetLng = rideStatus === 1 ? @(activeRide?.PickupLng ?? 0) : @(activeRide?.DropoffLng ?? 0);
+        // Sửa lỗi gán giá trị từ Razor sang JS
+        const hasActiveRide = @Html.Raw(Json.Serialize(activeRide != null));
+        const rideStatus = Number('@(activeRide != null ? (int)activeRide.Status : 0)');
+
+        // Dùng dấu nháy đơn bọc quanh giá trị Razor để JS hiểu đó là một chuỗi/số hợp lệ trước khi parse
+        const targetLat = parseFloat('@(activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ? activeRide.PickupLat : (activeRide?.DropoffLat ?? 0))');
+        const targetLng = parseFloat('@(activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ? activeRide.PickupLng : (activeRide?.DropoffLng ?? 0))');
 
         var carIcon = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204066.png',
@@ -165,7 +244,24 @@
         iconAnchor: [20, 20]
         });
 
-        // 1. HÀM THEO DÕI VỊ TRÍ LIÊN TỤC
+        // Toggle Panel
+        let isPanelMinimized = false;
+        function toggleActiveRidePanel() {
+        const content = document.getElementById('activeRideContent');
+        const handle = document.getElementById('dragHandle');
+        if(!content || !handle) return;
+
+        isPanelMinimized = !isPanelMinimized;
+        content.classList.toggle('collapsed', isPanelMinimized);
+        handle.classList.toggle('collapsed', isPanelMinimized);
+        }
+
+        function requestNotificationPermission() {
+        if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+        }
+        }
+
         function startTracking() {
         if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition(function(position) {
@@ -179,34 +275,34 @@
         driverMarker.setLatLng([currentLat, currentLng]);
         }
 
-        // Push vị trí lên Server để hệ thống Dispatcher nắm được
+        // Gửi tọa độ về server
         fetch('/Driver/UpdateLocation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lat: currentLat, lng: currentLng })
         });
 
-        // Cập nhật lại đường đi theo vị trí mới
         if (hasActiveRide && routingControl != null) {
         routingControl.setWaypoints([
         L.latLng(currentLat, currentLng),
         L.latLng(targetLat, targetLng)
         ]);
         }
-        }, function(error) { console.log(error); }, { enableHighAccuracy: true });
+        }, function(error) {
+        console.error("Lỗi định vị:", error);
+        }, { enableHighAccuracy: true });
         }
         }
 
-        // 2. VẼ ĐƯỜNG NẾU ĐANG CÓ CUỐC XE
+        // Khởi tạo trạng thái ban đầu
+        let savedOnlineState = localStorage.getItem('driverOnlineState') === 'true';
+
         if (hasActiveRide) {
         startTracking();
         L.marker([targetLat, targetLng]).addTo(map).bindPopup(rideStatus === 1 ? "Điểm đón khách" : "Điểm đến");
 
         routingControl = L.Routing.control({
-        waypoints: [
-        L.latLng(currentLat, currentLng),
-        L.latLng(targetLat, targetLng)
-        ],
+        waypoints: [ L.latLng(currentLat, currentLng), L.latLng(targetLat, targetLng) ],
         routeWhileDragging: false,
         addWaypoints: false,
         show: false,
@@ -214,59 +310,75 @@
         }).addTo(map);
 
         routingControl.on('routesfound', function(e) {
-        var distance = (e.routes[0].summary.totalDistance / 1000).toFixed(1);
-        document.getElementById('distanceText').innerText = `Còn cách ${distance} km`;
+        const distElement = document.getElementById('distanceText');
+        if(distElement) {
+        distElement.innerText = `Còn cách ${(e.routes[0].summary.totalDistance / 1000).toFixed(1)} km`;
+        }
         });
         }
+        else if (savedOnlineState) {
+        isOnline = true;
+        updateOnlineUI(true);
+        startTracking();
+        }
 
-        // 3. BẬT/TẮT NHẬN CHUYẾN
+        // Sự kiện nút Online/Offline
         const btnToggle = document.getElementById('btnToggleOnline');
         if(btnToggle) {
         btnToggle.addEventListener('click', function() {
         isOnline = !isOnline;
+        localStorage.setItem('driverOnlineState', isOnline);
+        if(isOnline) requestNotificationPermission();
+        updateOnlineUI(isOnline);
+
         if(isOnline) {
         audioEl.play().then(() => { audioEl.pause(); });
         startTracking();
-        this.innerHTML = '<i class="bi bi-power me-2"></i> DỪNG LÀM VIỆC';
-        this.classList.replace('btn-liquid', 'btn-secondary');
-        document.getElementById('statusText').innerText = "Đang trực tuyến • Chờ hệ thống phân phối";
-        document.getElementById('radarGlow').style.animation = 'pulse-glass 2.5s infinite';
-        document.getElementById('radarIcon').classList.replace('text-secondary', 'text-success');
         } else {
-        navigator.geolocation.clearWatch(watchId);
-        this.innerHTML = '<i class="bi bi-power me-2"></i> BẬT NHẬN CHUYẾN';
-        this.classList.replace('btn-secondary', 'btn-liquid');
-        document.getElementById('statusText').innerText = "Ngoại tuyến";
-        document.getElementById('radarGlow').style.animation = 'none';
-        document.getElementById('radarIcon').classList.replace('text-success', 'text-secondary');
+        if(watchId) navigator.geolocation.clearWatch(watchId);
         }
         });
         }
 
-        // 4. SIGNALR: NHẬN CUỐC TỪ HỆ THỐNG PHÂN PHỐI
-        const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
-        let currentRideData = { id: 0, lat: 0, lng: 0, declinedIds: "[]" };
-        let rideTimeout;
-        let countdownInterval;
+        function updateOnlineUI(online) {
+        const btn = document.getElementById('btnToggleOnline');
+        const statusTxt = document.getElementById('statusText');
+        const radar = document.getElementById('radarGlow');
+        const icon = document.getElementById('radarIcon');
 
-        // Bổ sung tham số customerPhone vào vị trí số 3
-        connection.on("ReceiveRideRequest", function (rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
+        if(!btn) return;
+
+        if(online) {
+        btn.innerHTML = '<i class="bi bi-power me-2"></i> DỪNG LÀM VIỆC';
+        btn.classList.replace('btn-liquid', 'btn-secondary');
+        if(statusTxt) statusTxt.innerText = "Đang trực tuyến • Chờ hệ thống";
+        if(radar) radar.style.animation = 'pulse-glass 2.5s infinite';
+        if(icon) icon.classList.replace('text-secondary', 'text-success');
+        } else {
+        btn.innerHTML = '<i class="bi bi-power me-2"></i> BẬT NHẬN CHUYẾN';
+        btn.classList.replace('btn-secondary', 'btn-liquid');
+        if(statusTxt) statusTxt.innerText = "Ngoại tuyến";
+        if(radar) radar.style.animation = 'none';
+        if(icon) icon.classList.replace('text-success', 'text-secondary');
+        }
+        }
+
+        // --- CƠ CHẾ HIỂN THỊ POPUP ---
+        let currentRideData = { id: 0, lat: 0, lng: 0, declinedIds: "[]" };
+        let rideTimeout, countdownInterval;
+
+        function showNewRidePopup(rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson, secondsLeft) {
         if (!isOnline || hasActiveRide) return;
         currentRideData = { id: rideId, lat: pLat, lng: pLng, declinedIds: declinedJson };
 
-        // Đổ dữ liệu ra Popup
         document.getElementById('modalRideId').value = rideId;
         document.getElementById('modalCustomerName').innerText = customerName;
-
-        // Gán số điện thoại
         document.getElementById('modalCustomerPhone').innerHTML = `<i class="bi bi-telephone-fill me-1"></i> ${customerPhone}`;
-
         document.getElementById('modalPickup').innerText = pickup;
         document.getElementById('modalDropoff').innerText = dropoff;
-        document.getElementById('modalFare').innerText = fare.toLocaleString('vi-VN');
+        document.getElementById('modalFare').innerText = Number(fare).toLocaleString('vi-VN');
         document.getElementById('modalRideDist').innerText = rideDist;
 
-        // Tính khoảng cách Tài xế -> Điểm đón
         let distToPickup = 0;
         if (currentLat !== 0 && currentLng !== 0) {
         distToPickup = (map.distance([currentLat, currentLng], [pLat, pLng]) / 1000).toFixed(1);
@@ -274,31 +386,31 @@
         document.getElementById('modalDriverToPickupDist').innerText = distToPickup;
 
         document.getElementById('newRideSheet').classList.add('show');
-        audioEl.play().catch(e => console.log(e));
+        audioEl.play().catch(e => console.log("Audio play blocked"));
 
-        // Bộ đếm ngược 15s
-        let secondsLeft = 15;
         const timerDisplay = document.getElementById('timerDisplay');
-        timerDisplay.innerText = `Tự hủy sau: ${secondsLeft}s`;
-
         clearInterval(countdownInterval);
         countdownInterval = setInterval(() => {
         secondsLeft--;
-        timerDisplay.innerText = `Tự hủy sau: ${secondsLeft}s`;
-        if(secondsLeft <= 0) clearInterval(countdownInterval);
+        if(timerDisplay) timerDisplay.innerText = `Tự hủy sau: ${secondsLeft}s`;
+        if(secondsLeft <= 0) {
+        clearInterval(countdownInterval);
+        declineRide();
+        }
         }, 1000);
+        }
 
-        clearTimeout(rideTimeout);
-        rideTimeout = setTimeout(() => { declineRide(); }, 15000);
+        // SignalR
+        const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
+        connection.on("ReceiveRideRequest", function (...args) {
+        // args: rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson
+        showNewRidePopup(...args, 15);
         });
+        connection.start().catch(err => console.error(err.toString()));
 
-        connection.start();
-
-        // 5. TỪ CHỐI / BỎ QUA CUỐC XE
         function declineRide() {
         stopAlarm();
         document.getElementById('newRideSheet').classList.remove('show');
-        // Gửi API về hệ thống phân phối để đẩy cho tài xế khác
         fetch('/Driver/DeclineRide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -312,12 +424,15 @@
         }
 
         function stopAlarm() {
+        if(audioEl) {
         audioEl.pause();
         audioEl.currentTime = 0;
+        }
         clearTimeout(rideTimeout);
         clearInterval(countdownInterval);
         }
 
-        document.getElementById('acceptForm').addEventListener('submit', stopAlarm);
+        const acceptForm = document.getElementById('acceptForm');
+        if(acceptForm) acceptForm.addEventListener('submit', stopAlarm);
     </script>
 }

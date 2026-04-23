@@ -18,40 +18,93 @@ namespace RideHailingApp.Web.Controllers
         private readonly IRideService _rideService;
         private readonly ApplicationDbContext _context;
         private readonly IHubContext<RideHub> _hubContext; // Hub SignalR
+        private readonly IProfileService _profileService;
 
-        public DriverController(IRideService rideService, ApplicationDbContext context, IHubContext<RideHub> hubContext)
+
+        public DriverController(IRideService rideService, ApplicationDbContext context, IHubContext<RideHub> hubContext, IProfileService profileService)
         {
             _rideService = rideService;
             _context = context;
             _hubContext = hubContext;
+            _profileService = profileService;
+
         }
 
-        // --- 1. MÀN HÌNH CHÍNH (MAP) ---
+        // --- MÀN HÌNH CHÍNH (MAP) ---
         public IActionResult Index()
         {
             ViewBag.UserName = User.Identity.Name;
 
-            // 1. Lấy ID tài xế hiện tại
             var driverIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (driverIdClaim != null)
             {
                 int driverId = int.Parse(driverIdClaim.Value);
 
-                // 2. Lấy cuốc xe ĐANG CHẠY (Accepted: Đang đi đón, InProgress: Đang chở khách)
+                // Lấy cuốc xe ĐANG CHẠY kèm theo thông tin Khách hàng (Customer)
                 var activeRide = _context.Rides
+                    .Include(r => r.Customer) // <--- BẮT BUỘC PHẢI THÊM DÒNG NÀY
                     .Where(r => r.DriverId == driverId &&
                           (r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ||
                            r.Status == RideHailingApp.Common.Enums.RideStatusEnum.InProgress))
                     .FirstOrDefault();
 
-                // 3. Truyền cuốc xe đang chạy xuống View để vẽ bản đồ
                 ViewBag.ActiveRide = activeRide;
             }
 
             return View();
         }
 
-        // --- 2. XÁC NHẬN ĐÃ TỚI ĐIỂM ĐÓN (BẮT ĐẦU CHỞ KHÁCH) ---
+        [HttpGet]
+        public IActionResult Profile()
+        {
+            ViewBag.UserName = User.Identity.Name;
+            ViewBag.RoleName = User.IsInRole("Driver") ? "Tài xế đối tác"
+                             : User.IsInRole("Admin") ? "Quản trị viên"
+                             : "Khách hàng thành viên";
+            return View();
+        }
+
+        [HttpGet]
+        public IActionResult ChangePassword()
+        {
+            return View();
+        }
+
+        //-------------------------- POST ACTIONS -------------------//
+        [HttpPost]
+        public IActionResult UpdateInfo(string fullName, string phone)
+        {
+            // Tương lai: Thêm logic cập nhật tên/sđt vào DB tại đây
+            TempData["Success"] = "Cập nhật thông tin thành công!";
+            return RedirectToAction("Profile"); // Trở về trang Profile
+        }
+
+        [HttpPost]
+        public IActionResult ChangePassword(string currentPassword, string newPassword, string confirmPassword)
+        {
+            if (newPassword != confirmPassword)
+            {
+                TempData["Error"] = "Mật khẩu xác nhận không khớp!";
+                return RedirectToAction("ChangePassword");
+            }
+
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return RedirectToAction("Login", "Auth");
+
+            int userId = int.Parse(userIdClaim.Value);
+            bool isSuccess = _profileService.ChangePassword(userId, currentPassword, newPassword);
+
+            if (!isSuccess)
+            {
+                TempData["Error"] = "Mật khẩu hiện tại không chính xác!";
+                return RedirectToAction("ChangePassword");
+            }
+
+            TempData["Success"] = "Đổi mật khẩu thành công!";
+            return RedirectToAction("Profile"); // Trở về trang Profile
+        }
+
+        // --- XÁC NHẬN ĐÃ TỚI ĐIỂM ĐÓN (BẮT ĐẦU CHỞ KHÁCH) ---
         [HttpPost]
         public IActionResult ArrivedAtPickup(int rideId)
         {
@@ -66,7 +119,7 @@ namespace RideHailingApp.Web.Controllers
             return RedirectToAction("Index"); // Tải lại trang để cập nhật UI bản đồ
         }
 
-        // --- 3. XÁC NHẬN HOÀN THÀNH CHUYẾN ĐI ---
+        // --- XÁC NHẬN HOÀN THÀNH CHUYẾN ĐI ---
         [HttpPost]
         public IActionResult CompleteRide(int rideId)
         {
@@ -82,7 +135,7 @@ namespace RideHailingApp.Web.Controllers
             return RedirectToAction("Index");
         }
 
-        // --- 4. NHẬN CUỐC XE ---
+        // --- NHẬN CUỐC XE ---
         [HttpPost]
         public IActionResult AcceptRide(int rideId)
         {
@@ -105,7 +158,7 @@ namespace RideHailingApp.Web.Controllers
             return RedirectToAction("Index");
         }
 
-        // --- 5. CẬP NHẬT VỊ TRÍ REALTIME ---
+        // --- CẬP NHẬT VỊ TRÍ REALTIME ---
         [HttpPost]
         public IActionResult UpdateLocation([FromBody] LocationUpdateModel model)
         {

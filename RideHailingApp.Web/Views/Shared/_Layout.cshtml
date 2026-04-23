@@ -94,9 +94,24 @@
                     <i class="bi bi-gear-fill"></i>
                 </a>
 
-                <a asp-controller="Profile" asp-action="Index" class="nav-btn">
-                    <i class="bi bi-person-circle"></i>
-                </a>
+                @if (User.IsInRole("Customer"))
+                {
+                    <a asp-controller="Customer" asp-action="Profile" class="nav-btn">
+                        <i class="bi bi-person-circle"></i>
+                    </a>
+                }
+                else if (User.IsInRole("Driver"))
+                {
+                    <a asp-controller="Driver" asp-action="Profile" class="nav-btn">
+                        <i class="bi bi-person-circle"></i>
+                    </a>
+                }
+                else if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Admin" asp-action="Profile" class="nav-btn">
+                        <i class="bi bi-person-circle"></i>
+                    </a>
+                }
             </nav>
         </div>
 
@@ -118,6 +133,70 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @if (User.Identity != null && User.Identity.IsAuthenticated && User.IsInRole("Driver"))
+    {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+            const currentPath = window.location.pathname.toLowerCase();
+            const isMapPage = currentPath === '/driver' || currentPath.includes('/driver/index');
+            const isOnline = localStorage.getItem('driverOnlineState') === 'true';
+
+            if (!isMapPage && isOnline) {
+            const globalConnection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
+
+            globalConnection.on("ReceiveRideRequest", function (rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
+
+            // Lưu cuốc xe vào bộ nhớ đệm trước khi chuyển trang
+            const pendingRide = {
+            rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson,
+            timestamp: new Date().getTime()
+            };
+            localStorage.setItem('pendingRideRequest', JSON.stringify(pendingRide));
+
+            if (Notification.permission === "granted") {
+            const systemNotification = new Notification("🚕 CÓ CUỐC XE MỚI!", {
+            body: `Khách hàng ${customerName} đang đợi. Bấm để mở trạm điều khiển!`,
+            icon: 'https://cdn-icons-png.flaticon.com/512/3204/3204066.png',
+            vibrate: [200, 100, 200, 100, 200],
+            requireInteraction: true
+            });
+            systemNotification.onclick = function() {
+            window.location.href = '/Driver/Index';
+            };
+            }
+
+            Swal.fire({
+            title: 'CÓ CUỐC XE MỚI!',
+            text: `Khách hàng ${customerName} đang đợi bạn.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#00b14f',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="bi bi-radar"></i> Về trạm nhận cuốc',
+            cancelButtonText: 'Bỏ qua',
+            allowOutsideClick: false,
+            timer: 15000,
+            timerProgressBar: true
+            }).then((result) => {
+            if (result.isConfirmed) {
+            window.location.href = '/Driver/Index';
+            } else {
+            // Nếu bấm bỏ qua, xóa bộ nhớ đệm để không hiện lại
+            localStorage.removeItem('pendingRideRequest');
+            }
+            });
+
+            const audio = new Audio('/sounds/ringtone.mp3');
+            audio.play().catch(e => console.log(e));
+            });
+
+            globalConnection.start().catch(err => console.error(err));
+            }
+            });
+        </script>
+    }
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>
