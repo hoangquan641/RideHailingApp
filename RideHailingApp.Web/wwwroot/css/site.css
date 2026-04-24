@@ -366,9 +366,9 @@ body.driver-page {
     transition: bottom 0.6s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
-    .driver-bottom-sheet.show {
-        bottom: 85px;
-    }
+.driver-bottom-sheet.show {
+    bottom: 85px;
+}
 
 .glass-info-box {
     background: rgba(255, 255, 255, 0.3);

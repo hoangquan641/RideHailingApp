@@ -167,56 +167,60 @@
             <div class="liquidGlass-shine"></div>
 
             <nav class="dock" id="dock">
-                <a href="/" class="icon nav-btn">
-                    <i class="bi bi-house-door-fill"></i>
-                </a>
-
-                <a href="#" class="icon nav-btn">
-                    <i class="bi bi-clock-fill"></i>
-                </a>
-
                 @if (User.IsInRole("Customer"))
                 {
-                    <a asp-controller="Customer" asp-action="BookRide" class="icon nav-btn center-btn bg-success text-white">
+                    <a asp-controller="Customer" asp-action="Index" class="icon nav-btn" title="Bản đồ">
+                        <i class="bi bi-map-fill"></i>
+                    </a>
+                    <a asp-controller="Customer" asp-action="RideHistory" class="icon nav-btn" title="Lịch sử">
+                        <i class="bi bi-clock-history"></i>
+                    </a>
+                    <a asp-controller="Customer" asp-action="BookRide" class="icon nav-btn center-btn bg-success text-white" title="Đặt xe">
                         <i class="bi bi-car-front-fill"></i>
                     </a>
+                    <a href="#" class="icon nav-btn" title="Thông báo">
+                        <i class="bi bi-bell-fill"></i>
+                    </a>
+                    <a asp-controller="Customer" asp-action="Profile" class="icon nav-btn" title="Hồ sơ">
+                        <i class="bi bi-person-fill"></i>
+                    </a>
                 }
                 else if (User.IsInRole("Driver"))
                 {
-                    <a asp-controller="Driver" asp-action="Index" class="icon nav-btn center-btn bg-warning text-white">
+                    <a href="#" class="icon nav-btn" title="Ví / Doanh thu">
+                        <i class="bi bi-wallet-fill"></i>
+                    </a>
+                    <a asp-controller="Driver" asp-action="RideHistory" class="icon nav-btn" title="Lịch sử chuyến">
+                        <i class="bi bi-receipt-cutoff"></i>
+                    </a>
+                    <a asp-controller="Driver" asp-action="Index" class="icon nav-btn center-btn bg-warning text-white" title="Trạm nhận cuốc">
                         <i class="bi bi-radar"></i>
                     </a>
+                    <a href="#" class="icon nav-btn" title="Thông báo">
+                        <i class="bi bi-bell-fill"></i>
+                    </a>
+                    <a asp-controller="Driver" asp-action="Profile" class="icon nav-btn" title="Hồ sơ">
+                        <i class="bi bi-person-badge-fill"></i>
+                    </a>
                 }
                 else if (User.IsInRole("Admin"))
                 {
-                    <a asp-controller="Admin" asp-action="Index" class="icon nav-btn center-btn bg-danger text-white">
+                    <a asp-controller="Admin" asp-action="ManageUsers" class="icon nav-btn" title="Người dùng">
+                        <i class="bi bi-people-fill"></i>
+                    </a>
+                    <a href="#" class="icon nav-btn" title="Báo cáo">
+                        <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                    </a>
+                    <a asp-controller="Admin" asp-action="Index" class="icon nav-btn center-btn bg-danger text-white" title="Thống kê">
                         <i class="bi bi-pie-chart-fill"></i>
                     </a>
-                }
-
-                <a href="#" class="icon nav-btn">
-                    <i class="bi bi-bell-fill"></i>
-                </a>
-
-                @if (User.IsInRole("Customer"))
-                {
-                    <a asp-controller="Customer" asp-action="Profile" class="icon nav-btn">
-                        <i class="bi bi-person-fill"></i>
+                    <a href="#" class="icon nav-btn" title="Thông báo">
+                        <i class="bi bi-bell-fill"></i>
+                    </a>
+                    <a asp-controller="Admin" asp-action="Profile" class="icon nav-btn" title="Cài đặt">
+                        <i class="bi bi-gear-fill"></i>
                     </a>
                 }
-                else if (User.IsInRole("Driver"))
-                {
-                    <a asp-controller="Driver" asp-action="Profile" class="icon nav-btn">
-                        <i class="bi bi-person-fill"></i>
-                    </a>
-                }
-                else if (User.IsInRole("Admin"))
-                {
-                    <a asp-controller="Admin" asp-action="Profile" class="icon nav-btn">
-                        <i class="bi bi-person-fill"></i>
-                    </a>
-                }
-
             </nav>
         </div>
 
@@ -234,16 +238,37 @@
 
             // 1. Phân tích URL để Set Active
             let activeSet = false;
-            navBtns.forEach(btn => {
-            const href = btn.getAttribute('href').toLowerCase();
-            if (href !== '#' && (currentPath.includes(href) && href !== '/' || (currentPath === '/' && href === '/'))) {
+
+            // Sắp xếp các nút theo độ dài link (href) giảm dần.
+            // Việc này giúp ưu tiên khớp các trang chi tiết (vd: /Customer/Profile) trước trang gốc (/Customer)
+            const sortedBtns = Array.from(navBtns).sort((a, b) => b.getAttribute('href').length - a.getAttribute('href').length);
+
+            sortedBtns.forEach(btn => {
+            if (activeSet) return; // Đã tìm thấy nút active thì bỏ qua các nút còn lại
+
+            let href = btn.getAttribute('href').toLowerCase();
+            if (href === '#') return;
+
+            let path = currentPath;
+
+            // Loại bỏ dấu '/' ở cuối (nếu có) để so sánh đồng nhất
+            if (href.endsWith('/') && href.length > 1) href = href.slice(0, -1);
+            if (path.endsWith('/') && path.length > 1) path = path.slice(0, -1);
+
+            // Điều kiện khớp: Trùng khớp chính xác HOẶC đường dẫn mặc định là Index
+            if (path === href || path === href + '/index' || path + '/index' === href) {
             btn.classList.add('active');
             activeSet = true;
             }
             });
 
             if (!activeSet && navBtns.length > 0) {
+            // Nếu là trang mặc định hoặc tìm không ra, active nút Center
+            if (navBtns.length >= 3) {
+            navBtns[2].classList.add('active'); // Nút center
+            } else {
             navBtns[0].classList.add('active');
+            }
             }
 
             // 2. Xử lý sự kiện Click (Ripple & Active Ảo)
@@ -282,9 +307,19 @@
             document.addEventListener('DOMContentLoaded', () => {
             const currentPath = window.location.pathname.toLowerCase();
             const isMapPage = currentPath === '/driver' || currentPath.includes('/driver/index');
-            const isOnline = localStorage.getItem('driverOnlineState') === 'true';
+
+            // ĐỔI SANG SESSION STORAGE
+            const isOnline = sessionStorage.getItem('driverOnlineState') === 'true';
 
             if (!isMapPage && isOnline) {
+
+            // BÍ QUYẾT Ở ĐÂY: Trình duyệt báo cho DB biết "Tài xế chỉ đổi tab thôi, bật online lại cho họ đi!"
+            fetch('/Driver/ToggleStatus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ isOnline: true })
+            });
+
             const globalConnection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
 
             globalConnection.on("ReceiveRideRequest", function (rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson) {
@@ -293,7 +328,8 @@
             rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson,
             timestamp: new Date().getTime()
             };
-            localStorage.setItem('pendingRideRequest', JSON.stringify(pendingRide));
+            // LƯU BẰNG SESSION STORAGE
+            sessionStorage.setItem('pendingRideRequest', JSON.stringify(pendingRide));
 
             if (Notification.permission === "granted") {
             const systemNotification = new Notification("🚕 CÓ CUỐC XE MỚI!", {
@@ -303,6 +339,7 @@
             requireInteraction: true
             });
             systemNotification.onclick = function() {
+            window.focus();
             window.location.href = '/Driver/Index';
             };
             }
@@ -322,8 +359,8 @@
             }).then((result) => {
             if (result.isConfirmed) {
             window.location.href = '/Driver/Index';
-            } else {
-            localStorage.removeItem('pendingRideRequest');
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+            sessionStorage.removeItem('pendingRideRequest');
             }
             });
 

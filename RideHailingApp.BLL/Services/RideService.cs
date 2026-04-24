@@ -12,9 +12,13 @@ namespace RideHailingApp.BLL.Services
         bool AcceptRide(int rideId, int driverId);
         Ride BookRide(BookRideDTO model);
 
-        // Bổ sung
+        // Tìm kiếm và từ chối
         int? FindNearestAvailableDriver(decimal pickupLat, decimal pickupLng, List<int> excludedDriverIds);
         void MarkRideAsDeclined(int rideId, int driverId);
+
+        // --- BỔ SUNG MỚI: XỬ LÝ TRẠNG THÁI NGẮT KẾT NỐI ---
+        void SetDriverAvailability(int driverId, bool isAvailable);
+        void CancelPendingRidesForCustomer(int customerId);
     }
 
     public class RideService : IRideService
@@ -134,6 +138,39 @@ namespace RideHailingApp.BLL.Services
             if (ride != null)
             {
                 ride.DeclinedDriverIds += $"[{driverId}]";
+                _context.SaveChanges();
+            }
+        }
+
+        // ==============================================================================
+        // BỔ SUNG MỚI: CẬP NHẬT TRẠNG THÁI TÀI XẾ (Dùng cho API và SignalR Disconnect)
+        // ==============================================================================
+        public void SetDriverAvailability(int driverId, bool isAvailable)
+        {
+            var driver = _context.Users.Find(driverId);
+            if (driver != null)
+            {
+                driver.IsDriverAvailable = isAvailable;
+                _context.SaveChanges();
+            }
+        }
+
+        // ==============================================================================
+        // BỔ SUNG MỚI: HỦY CUỐC XE PENDING (Dùng khi khách hàng tắt web/rớt mạng)
+        // ==============================================================================
+        public void CancelPendingRidesForCustomer(int customerId)
+        {
+            // Lấy tất cả các cuốc xe đang Pending của khách hàng này
+            var pendingRides = _context.Rides
+                .Where(r => r.CustomerId == customerId && r.Status == Common.Enums.RideStatusEnum.Pending)
+                .ToList();
+
+            if (pendingRides.Any())
+            {
+                foreach (var ride in pendingRides)
+                {
+                    ride.Status = Common.Enums.RideStatusEnum.Cancelled;
+                }
                 _context.SaveChanges();
             }
         }

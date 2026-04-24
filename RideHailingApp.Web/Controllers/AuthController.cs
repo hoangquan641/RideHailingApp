@@ -16,9 +16,29 @@ namespace RideHailingApp.Web.Controllers
             _authService = authService;
         }
 
+        // Hàm phụ trợ giúp chuyển hướng người dùng đã đăng nhập về đúng trang
+        private IActionResult RedirectToDashboard()
+        {
+            if (User.IsInRole(Common.Enums.RoleEnum.Admin.ToString()) || User.IsInRole("Admin"))
+                return RedirectToAction("Index", "Admin");
+
+            if (User.IsInRole(Common.Enums.RoleEnum.Driver.ToString()) || User.IsInRole("Driver"))
+                return RedirectToAction("Index", "Driver");
+
+            return RedirectToAction("Index", "Customer");
+        }
+
         // --- ĐĂNG KÝ ---
         [HttpGet]
-        public IActionResult Register() => View();
+        public IActionResult Register()
+        {
+            // NẾU ĐÃ ĐĂNG NHẬP -> ĐẨY VỀ TRANG CHỦ
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return RedirectToDashboard();
+            }
+            return View();
+        }
 
         [HttpPost]
         public IActionResult Register(RegisterDTO model)
@@ -38,7 +58,15 @@ namespace RideHailingApp.Web.Controllers
 
         // --- ĐĂNG NHẬP ---
         [HttpGet]
-        public IActionResult Login() => View();
+        public IActionResult Login()
+        {
+            // NẾU ĐÃ ĐĂNG NHẬP -> ĐẨY VỀ TRANG CHỦ
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return RedirectToDashboard();
+            }
+            return View();
+        }
 
         [HttpPost]
         public async Task<IActionResult> Login(LoginDTO model)

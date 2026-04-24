@@ -1,18 +1,267 @@
 ﻿@{
-    ViewData["Title"] = "Trang chủ Khách Hàng";
+    ViewData["Title"] = "Hành trình của bạn";
+    var activeRide = ViewBag.ActiveRide as RideHailingApp.DAL.Entities.Ride;
+
+    bool isPending = activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.Pending;
+    bool isAccepted = activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted;
+    bool isInProgress = activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.InProgress;
 }
 
-<div class="text-center mt-5">
-    <h2>Chào mừng, @ViewBag.UserName!</h2>
-    <p class="lead">Bạn muốn đi đâu hôm nay?</p>
-    <a asp-controller="Customer" asp-action="BookRide" class="btn btn-primary btn-lg mt-3">
-        <i class="bi bi-geo-alt"></i> Đặt xe ngay
-    </a>
-</div>
+<style>
+    /* CSS hỗ trợ thanh gạt và hiệu ứng mượt */
+    #customerPanelContent {
+        transition: max-height 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
+        max-height: 800px;
+        opacity: 1;
+        overflow: hidden;
+    }
 
-@if (TempData["Success"] != null)
+        #customerPanelContent.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+    .drag-handle {
+        transition: transform 0.4s ease, background-color 0.4s ease;
+    }
+
+        .drag-handle.collapsed {
+            transform: scaleX(0.5);
+            background-color: #00b14f !important;
+        }
+</style>
+
+@if (activeRide == null)
 {
-    <div class="alert alert-success mt-4 text-center">
-        @TempData["Success"]
+    <div class="container mt-5 pt-4 text-center">
+        <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="Car" width="120" class="mb-4 opacity-75" />
+        <h2 class="fw-bold text-dark">Chào @ViewBag.UserName,</h2>
+        <p class="text-muted mb-5">Hôm nay bạn muốn đi đâu? Hãy để chúng tôi đưa bạn đi.</p>
+
+        <a asp-controller="Customer" asp-action="BookRide" class="btn w-100 py-3 rounded-pill fs-5 shadow-lg text-white" style="background: linear-gradient(135deg, #00b14f, #28c76f);">
+            <i class="bi bi-geo-alt-fill me-2"></i> ĐẶT XE NGAY
+        </a>
     </div>
+}
+else
+{
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+    <div id="map" class="map-fullscreen"></div>
+
+    <div class="floating-bottom-sheet" id="customerPanel" style="display: block; bottom: 85px;">
+
+        <div class="text-center py-2 mb-1" onclick="toggleCustomerPanel()" style="cursor: pointer;">
+            <div id="dragHandle" class="drag-handle" style="width: 50px; height: 6px; background: #dee2e6; border-radius: 10px; margin: 0 auto;"></div>
+        </div>
+
+        <div id="customerPanelContent" class="mt-1">
+
+            <div id="stateSearching" style="display: @(isPending ? "block" : "none")">
+                <div class="text-center mb-3">
+                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2 mb-2 animate__animated animate__pulse animate__infinite">
+                        <i class="bi bi-radar"></i> ĐANG TÌM TÀI XẾ
+                    </span>
+                    <h1 class="text-success fw-bold display-4 mb-0">@activeRide.Fare.ToString("N0")</h1>
+                    <p class="text-muted fw-medium small mb-0">CƯỚC PHÍ (VNĐ)</p>
+                </div>
+
+                <div class="text-center py-3">
+                    <div class="radar-glass-pulse mx-auto mb-3" style="animation: pulse-glass 1.5s infinite; width: 70px; height: 70px; margin: 0 auto;">
+                        <i class="bi bi-search text-success fs-2"></i>
+                    </div>
+                    <p class="text-muted small mb-0">Hệ thống đang phát tín hiệu đến các tài xế quanh khu vực của bạn.</p>
+
+                    <form asp-action="CancelRide" method="post" class="mt-4 px-3 w-100">
+                        <input type="hidden" name="rideId" value="@activeRide.Id" />
+                        <button type="submit" class="btn btn-outline-danger w-100 rounded-pill py-2 fw-bold shadow-sm">
+                            HỦY TÌM KIẾM
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="stateDriverInfo" style="display: @(isAccepted || isInProgress ? "block" : "none")">
+
+                <div class="text-center mb-3">
+                    <span class="badge bg-success rounded-pill px-3 py-2 mb-2 animate__animated animate__pulse animate__infinite" id="rideStatusBadge">
+                        @(isInProgress ? "ĐANG DI CHUYỂN TỚI ĐIỂM ĐẾN" : "TÀI XẾ ĐANG ĐẾN ĐÓN BẠN")
+                    </span>
+                    <h1 class="text-success fw-bold display-4 mb-0">@activeRide.Fare.ToString("N0")</h1>
+                    <p class="text-muted fw-medium small mb-0">CƯỚC PHÍ (VNĐ)</p>
+                    <p class="text-primary fw-bold small mb-0 mt-2" id="distanceText">Đang tính toán lộ trình...</p>
+                </div>
+
+                <div class="glass-info-box mb-3">
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-person-circle text-info me-3 mt-1 fs-5"></i>
+                        <div class="w-100">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">TÀI XẾ CỦA BẠN</small>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong class="text-dark fs-6 d-block" id="uiDriverName">@(activeRide.Driver?.FullName ?? "...")</strong>
+                                    <small class="text-secondary fw-medium" id="uiDriverPhone"><i class="bi bi-telephone-fill"></i> @(activeRide.Driver?.PhoneNumber ?? "...")</small>
+                                </div>
+                                <a href="tel:@(activeRide.Driver?.PhoneNumber)" class="btn btn-success btn-sm rounded-circle shadow-sm" id="uiDriverPhoneBtn" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-telephone-fill"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-2" style="border-top: 1px dashed rgba(0,0,0,0.1);">
+
+                    <div class="d-flex align-items-start mb-3 mt-2">
+                        <i class="bi bi-geo-alt-fill text-primary me-3 mt-1 fs-5"></i>
+                        <div class="w-100">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">ĐIỂM ĐÓN</small>
+                            <strong class="text-dark small" id="uiPickup">@activeRide.PickupAddress</strong>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-geo-alt-fill text-danger me-3 mt-1 fs-5"></i>
+                        <div class="w-100">
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">ĐIỂM ĐẾN</small>
+                            <strong class="text-dark small" id="uiDropoff">@activeRide.DropoffAddress</strong>
+                        </div>
+                    </div>
+
+                    @if (isAccepted)
+                    {
+                        <form asp-action="CancelRide" method="post" class="mt-3">
+                            <input type="hidden" name="rideId" value="@activeRide.Id" />
+                            <button type="submit" class="btn btn-light text-danger w-100 rounded-pill py-2 fw-bold" style="border: 1px solid #dc3545;" onclick="return confirm('Bạn có chắc chắn muốn hủy chuyến xe này không? Tài xế có thể đang trên đường tới.');">
+                                HỦY CHUYẾN
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+
+            <div id="stateCompleted" style="display: none">
+                <div class="text-center py-4">
+                    <div class="bg-success bg-opacity-10 p-3 d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px;">
+                        <i class="bi bi-check-lg text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark">Chuyến đi hoàn thành!</h4>
+                    <p class="text-muted small mb-4">Cảm ơn bạn đã đồng hành cùng chúng tôi.</p>
+                    <button class="btn btn-liquid w-100 rounded-pill py-3 text-white fw-bold shadow-sm" onclick="location.reload()">
+                        ĐẶT CHUYẾN MỚI
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    @section Scripts {
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+
+        <script>
+            document.body.classList.add('map-page');
+
+            // 1. ANIMATION ẨN/HIỆN PANEL
+            let isPanelMinimized = false;
+            function toggleCustomerPanel() {
+            const content = document.getElementById('customerPanelContent');
+            const handle = document.getElementById('dragHandle');
+            isPanelMinimized = !isPanelMinimized;
+            content.classList.toggle('collapsed', isPanelMinimized);
+            handle.classList.toggle('collapsed', isPanelMinimized);
+            }
+
+            // 2. CẤU HÌNH BẢN ĐỒ VÀ ICON
+            let map = L.map('map', { zoomControl: false }).setView([@activeRide.PickupLat, @activeRide.PickupLng], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+            let customerIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+            let driverIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204066.png', iconSize: [40, 40], iconAnchor: [20, 20] });
+            let destinationIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+
+            let pickupMarker = L.marker([@activeRide.PickupLat, @activeRide.PickupLng], { icon: customerIcon }).addTo(map).bindPopup("Điểm đón");
+            let driverMarker = null;
+            let dropoffMarker = null;
+            let routingControl = null;
+
+            // 3. HÀM VẼ LỘ TRÌNH ĐA NĂNG
+            function drawRoute(startLat, startLng, endLat, endLng, isDriverToPickup) {
+            if(routingControl) map.removeControl(routingControl);
+
+            // Xử lý hiển thị Marker
+            if (isDriverToPickup) {
+            if(driverMarker) map.removeLayer(driverMarker);
+            driverMarker = L.marker([startLat, startLng], { icon: driverIcon }).addTo(map).bindPopup("Tài xế đang đến").openPopup();
+            } else {
+            if(driverMarker) map.removeLayer(driverMarker);
+            if(pickupMarker) map.removeLayer(pickupMarker);
+            pickupMarker = L.marker([startLat, startLng], { icon: driverIcon }).addTo(map).bindPopup("Đang chở khách").openPopup();
+            dropoffMarker = L.marker([endLat, endLng], { icon: destinationIcon }).addTo(map).bindPopup("Điểm đến");
+            }
+
+            // Cấu hình vẽ đường Leaflet
+            routingControl = L.Routing.control({
+            waypoints: [ L.latLng(startLat, startLng), L.latLng(endLat, endLng) ],
+            routeWhileDragging: false, addWaypoints: false, show: false,
+            lineOptions: { styles: [{ color: isDriverToPickup ? '#00b14f' : '#dc3545', weight: 6, opacity: 0.8 }] }
+            }).addTo(map);
+
+            // Cập nhật text và zoom vừa vặn
+            routingControl.on('routesfound', function(e) {
+            let distanceKm = (e.routes[0].summary.totalDistance / 1000).toFixed(1);
+            document.getElementById('distanceText').innerText = isDriverToPickup
+            ? `Tài xế đang cách bạn ${distanceKm} km`
+            : `Còn ${distanceKm} km tới điểm đến`;
+
+            map.fitBounds(L.latLngBounds([startLat, startLng], [endLat, endLng]), { paddingBottomRight: [0, 400] });
+            });
+            }
+
+            // 4. KHÔI PHỤC TRẠNG THÁI NẾU F5 TRÌNH DUYỆT
+            @if (isAccepted && activeRide.Driver != null)
+            {
+                <text>drawRoute(@(activeRide.Driver.CurrentLat ?? 0), @(activeRide.Driver.CurrentLng ?? 0), @activeRide.PickupLat, @activeRide.PickupLng, true);</text>
+            }
+            else if (isInProgress)
+            {
+                <text>drawRoute(@activeRide.PickupLat, @activeRide.PickupLng, @activeRide.DropoffLat, @activeRide.DropoffLng, false);</text>
+            }
+
+            // 5. LẮNG NGHE SIGNALR TỪ TÀI XẾ
+            const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
+
+            // Kịch bản: Tài xế nhận cuốc
+            connection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng) {
+            document.getElementById('stateSearching').style.display = 'none';
+            document.getElementById('stateDriverInfo').style.display = 'block';
+
+            document.getElementById('uiDriverName').innerText = driverName;
+            document.getElementById('uiDriverPhone').innerHTML = `<i class="bi bi-telephone-fill"></i> ${driverPhone}`;
+            document.getElementById('uiDriverPhoneBtn').href = `tel:${driverPhone}`;
+
+            // Ẩn nút Hủy tìm kiếm nếu nó đang hiện, nhưng nút Hủy chuyến sẽ được bật lên thông qua việc reload trang hoặc xử lý DOM (ở đây nếu không reload, form hủy chuyến mặc định đang bị ẩn bằng cú pháp Razor. Cách tốt nhất để khách hủy chuyến ngay sau khi nhận là reload lại trang để Razor load đúng form Hủy chuyến).
+            window.location.reload();
+            });
+
+            // Kịch bản: Tài xế bấm Đã tới điểm đón
+            connection.on("DriverArrived", function (dropLat, dropLng) {
+            window.location.reload(); // Tải lại để loại bỏ nút Hủy và load lại đường đi chuẩn xác
+            });
+
+            // Kịch bản: Hoàn thành chuyến đi
+            connection.on("RideCompleted", function () {
+            document.getElementById('stateSearching').style.display = 'none';
+            document.getElementById('stateDriverInfo').style.display = 'none';
+            document.getElementById('stateCompleted').style.display = 'block';
+
+            if(routingControl) map.removeControl(routingControl);
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'Chuyến đi kết thúc!', showConfirmButton: false, timer: 3000 });
+            });
+
+            connection.start().catch(err => console.error(err));
+        </script>
+    }
 }
