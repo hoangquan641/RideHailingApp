@@ -34,7 +34,6 @@ namespace RideHailingApp.Web.Controllers
             if (userIdClaim != null)
             {
                 int customerId = int.Parse(userIdClaim.Value);
-                // Lấy cuốc xe mới nhất chưa hoàn thành
                 var activeRide = _context.Rides
                     .Include(r => r.Driver)
                     .Where(r => r.CustomerId == customerId && r.Status != RideHailingApp.Common.Enums.RideStatusEnum.Completed && r.Status != RideHailingApp.Common.Enums.RideStatusEnum.Cancelled)
@@ -45,7 +44,6 @@ namespace RideHailingApp.Web.Controllers
             return View();
         }
 
-        // --- LỊCH SỬ CHUYẾN ĐI (KHÁCH HÀNG) ---
         [HttpGet]
         public IActionResult RideHistory()
         {
@@ -54,7 +52,6 @@ namespace RideHailingApp.Web.Controllers
 
             int customerId = int.Parse(userIdClaim.Value);
 
-            // Lấy danh sách chuyến đi của khách hàng (Bao gồm cả thông tin tài xế)
             var historyRides = _context.Rides
                 .Include(r => r.Driver)
                 .Where(r => r.CustomerId == customerId && !r.IsDeleted)
@@ -63,9 +60,7 @@ namespace RideHailingApp.Web.Controllers
 
             return View(historyRides);
         }
-        // =======================================================
-        // ĐÃ SỬA: Chặn không cho mở Form đặt xe nếu đang có cuốc chờ
-        // =======================================================
+
         [HttpGet]
         public IActionResult BookRide()
         {
@@ -74,21 +69,18 @@ namespace RideHailingApp.Web.Controllers
             {
                 int customerId = int.Parse(userIdClaim.Value);
 
-                // KIỂM TRA: Khách có cuốc xe nào ĐANG CHỜ hoặc ĐANG ĐI không?
                 var activeRide = _context.Rides.FirstOrDefault(r =>
                     r.CustomerId == customerId &&
                     (r.Status == RideStatusEnum.Pending ||
                      r.Status == RideStatusEnum.Accepted ||
                      r.Status == RideStatusEnum.InProgress));
 
-                // NẾU ĐANG CÓ CUỐC: Đẩy họ sang trang theo dõi (Index)
                 if (activeRide != null)
                 {
                     return RedirectToAction("Index");
                 }
             }
 
-            // NẾU KHÔNG CÓ CUỐC: Cho họ mở Form đặt xe như bình thường
             return View(new BookRideDTO());
         }
 
@@ -122,13 +114,24 @@ namespace RideHailingApp.Web.Controllers
 
             if (ModelState.IsValid)
             {
-                // 1. Luôn tạo cuốc xe trong DB với trạng thái Pending
-                var ride = _rideService.BookRide(model);
+                decimal distance = RideHailingApp.BLL.Algorithms.GeoCalculator.CalculateDistance(
+                    model.PickupLat, model.PickupLng,
+                    model.DropoffLat, model.DropoffLng);
 
-                // 2. Tìm xem có tài xế nào đang rảnh ngay lúc này không
+                if (distance < 1m)
+                {
+                    TempData["Error"] = "Khoảng cách quá ngắn (Tối thiểu 1 km). Vui lòng chọn lại điểm đến.";
+                    return RedirectToAction("BookRide");
+                }
+                if (distance > 50m)
+                {
+                    TempData["Error"] = "Khoảng cách quá xa (Tối đa 50 km). Vui lòng chọn lại điểm đến.";
+                    return RedirectToAction("BookRide");
+                }
+
+                var ride = _rideService.BookRide(model);
                 var nearestDriverId = _rideService.FindNearestAvailableDriver(model.PickupLat, model.PickupLng, new List<int>());
 
-                // 3. Nếu có tài xế rảnh -> Bắn sóng SignalR cho tài xế đó ngay lập tức
                 if (nearestDriverId != null)
                 {
                     await _hubContext.Clients.User(nearestDriverId.Value.ToString()).SendAsync(
@@ -146,8 +149,6 @@ namespace RideHailingApp.Web.Controllers
                     );
                 }
 
-                // 4. FIX: Bỏ luôn thẻ báo lỗi (else). Luôn đẩy khách về màn hình Radar!
-                // Dù hiện tại chưa có tài xế, nhưng 1 phút sau có tài xế bật App lên thì họ vẫn thấy cuốc này.
                 TempData["Success"] = "Đang kết nối với tài xế gần nhất...";
                 return RedirectToAction("Index");
             }
@@ -158,9 +159,8 @@ namespace RideHailingApp.Web.Controllers
         [HttpPost]
         public IActionResult UpdateInfo(string fullName, string phone)
         {
-            // Tương lai: Thêm logic cập nhật tên/sđt vào DB tại đây
             TempData["Success"] = "Cập nhật thông tin thành công!";
-            return RedirectToAction("Profile"); // Trở về trang Profile
+            return RedirectToAction("Profile");
         }
 
         [HttpPost]
@@ -185,36 +185,46 @@ namespace RideHailingApp.Web.Controllers
             }
 
             TempData["Success"] = "Đổi mật khẩu thành công!";
-            return RedirectToAction("Profile"); // Trở về trang Profile
+            return RedirectToAction("Profile");
         }
 
-        // --- HỦY CHUYẾN XE ---
+        // --- HỦY CHUYẾN XE (ĐÃ CẬP NHẬT NHÁNH 4.2) ---
         [HttpPost]
-        public async Task<IActionResult> CancelRide(int rideId)
+        public async Task<IActionResult> CancelRide(int rideId, string cancelReason)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaim != null)
             {
                 int customerId = int.Parse(userIdClaim.Value);
 
-                // Kéo cuốc xe lên (kèm theo thông tin tài xế nếu có)
                 var ride = _context.Rides.Include(r => r.Driver)
                     .FirstOrDefault(r => r.Id == rideId && r.CustomerId == customerId);
 
-                // Chỉ cho phép hủy nếu chuyến xe chưa hoàn thành hoặc chưa bị hủy trước đó
+                // Chỉ cho phép hủy khi chưa hoàn thành hoặc chưa bị hủy
                 if (ride != null &&
                     ride.Status != RideHailingApp.Common.Enums.RideStatusEnum.Completed &&
                     ride.Status != RideHailingApp.Common.Enums.RideStatusEnum.Cancelled)
                 {
+                    // 1. Cập nhật trạng thái và Lưu lý do
                     ride.Status = RideHailingApp.Common.Enums.RideStatusEnum.Cancelled;
-                    _context.SaveChanges();
+                    ride.CancelReason = cancelReason;
 
-                    // NẾU ĐÃ CÓ TÀI XẾ NHẬN: Bắn SignalR báo cho máy tài xế biết để họ quay về trạng thái Rảnh
+                    // 2. Nếu đã có tài xế nhận, giải phóng tài xế và gửi thông báo
                     if (ride.DriverId.HasValue)
                     {
+                        var driver = _context.Users.Find(ride.DriverId.Value);
+                        if (driver != null)
+                        {
+                            driver.IsDriverAvailable = true; // Trả tài xế về trạng thái Sẵn sàng
+                        }
+
+                        // Bắn SignalR báo cho máy tài xế
                         await _hubContext.Clients.User(ride.DriverId.Value.ToString())
                             .SendAsync("RideCancelledByCustomer");
                     }
+
+                    _context.SaveChanges();
+                    TempData["Success"] = "Đã hủy chuyến xe thành công.";
                 }
             }
             return RedirectToAction("Index");

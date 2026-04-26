@@ -38,5 +38,8 @@ namespace RideHailingApp.DAL.Entities
         public bool IsDeleted { get; set; } = false;
 
         public string DeclinedDriverIds { get; set; } = ""; // Lưu ID tài xế từ chối
+
+        [MaxLength(500)]
+        public string CancelReason { get; set; } = ""; // Lưu lý do hủy chuyến
     }
 }

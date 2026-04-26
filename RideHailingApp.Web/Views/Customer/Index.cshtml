@@ -73,12 +73,11 @@ else
                     </div>
                     <p class="text-muted small mb-0">Hệ thống đang phát tín hiệu đến các tài xế quanh khu vực của bạn.</p>
 
-                    <form asp-action="CancelRide" method="post" class="mt-4 px-3 w-100">
-                        <input type="hidden" name="rideId" value="@activeRide.Id" />
-                        <button type="submit" class="btn btn-outline-danger w-100 rounded-pill py-2 fw-bold shadow-sm">
+                    <div class="mt-4 px-3 w-100">
+                        <button type="button" onclick="promptCancelReason(@activeRide.Id)" class="btn btn-outline-danger w-100 rounded-pill py-2 fw-bold shadow-sm">
                             HỦY TÌM KIẾM
                         </button>
-                    </form>
+                    </div>
                 </div>
             </div>
 
@@ -130,12 +129,11 @@ else
 
                     @if (isAccepted)
                     {
-                        <form asp-action="CancelRide" method="post" class="mt-3">
-                            <input type="hidden" name="rideId" value="@activeRide.Id" />
-                            <button type="submit" class="btn btn-light text-danger w-100 rounded-pill py-2 fw-bold" style="border: 1px solid #dc3545;" onclick="return confirm('Bạn có chắc chắn muốn hủy chuyến xe này không? Tài xế có thể đang trên đường tới.');">
+                        <div class="mt-3">
+                            <button type="button" onclick="promptCancelReason(@activeRide.Id)" class="btn btn-light text-danger w-100 rounded-pill py-2 fw-bold" style="border: 1px solid #dc3545;">
                                 HỦY CHUYẾN
                             </button>
-                        </form>
+                        </div>
                     }
                 </div>
             </div>
@@ -152,17 +150,58 @@ else
                     </button>
                 </div>
             </div>
-
         </div>
     </div>
+
+    <form id="cancelForm" asp-action="CancelRide" method="post" style="display:none;">
+        <input type="hidden" id="cancelRideId" name="rideId" />
+        <input type="hidden" id="cancelReasonInput" name="cancelReason" />
+    </form>
 
     @section Scripts {
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
         <script>
             document.body.classList.add('map-page');
+
+            // --- HÀM XỬ LÝ POPUP HỦY CHUYẾN CÓ LÝ DO ---
+            function promptCancelReason(rideId) {
+            Swal.fire({
+            title: 'Lý do hủy chuyến?',
+            input: 'select',
+            inputOptions: {
+            'Thay đổi lịch trình': 'Thay đổi lịch trình',
+            'Chờ quá lâu': 'Chờ quá lâu',
+            'Tài xế yêu cầu hủy': 'Tài xế yêu cầu hủy',
+            'Đặt nhầm điểm đón/đến': 'Đặt nhầm điểm đón/đến',
+            'Lý do khác': 'Lý do khác'
+            },
+            inputPlaceholder: 'Chọn lý do...',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Xác nhận hủy',
+            cancelButtonText: 'Bỏ qua',
+            inputValidator: (value) => {
+            return new Promise((resolve) => {
+            if (value) {
+            resolve();
+            } else {
+            resolve('Vui lòng chọn một lý do để hủy chuyến!');
+            }
+            });
+            }
+            }).then((result) => {
+            if (result.isConfirmed) {
+            document.getElementById('cancelRideId').value = rideId;
+            document.getElementById('cancelReasonInput').value = result.value;
+            document.getElementById('cancelForm').submit();
+            }
+            });
+            }
 
             // 1. ANIMATION ẨN/HIỆN PANEL
             let isPanelMinimized = false;
@@ -191,7 +230,6 @@ else
             function drawRoute(startLat, startLng, endLat, endLng, isDriverToPickup) {
             if(routingControl) map.removeControl(routingControl);
 
-            // Xử lý hiển thị Marker
             if (isDriverToPickup) {
             if(driverMarker) map.removeLayer(driverMarker);
             driverMarker = L.marker([startLat, startLng], { icon: driverIcon }).addTo(map).bindPopup("Tài xế đang đến").openPopup();
@@ -202,14 +240,12 @@ else
             dropoffMarker = L.marker([endLat, endLng], { icon: destinationIcon }).addTo(map).bindPopup("Điểm đến");
             }
 
-            // Cấu hình vẽ đường Leaflet
             routingControl = L.Routing.control({
             waypoints: [ L.latLng(startLat, startLng), L.latLng(endLat, endLng) ],
             routeWhileDragging: false, addWaypoints: false, show: false,
             lineOptions: { styles: [{ color: isDriverToPickup ? '#00b14f' : '#dc3545', weight: 6, opacity: 0.8 }] }
             }).addTo(map);
 
-            // Cập nhật text và zoom vừa vặn
             routingControl.on('routesfound', function(e) {
             let distanceKm = (e.routes[0].summary.totalDistance / 1000).toFixed(1);
             document.getElementById('distanceText').innerText = isDriverToPickup
@@ -233,25 +269,14 @@ else
             // 5. LẮNG NGHE SIGNALR TỪ TÀI XẾ
             const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
 
-            // Kịch bản: Tài xế nhận cuốc
             connection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng) {
-            document.getElementById('stateSearching').style.display = 'none';
-            document.getElementById('stateDriverInfo').style.display = 'block';
-
-            document.getElementById('uiDriverName').innerText = driverName;
-            document.getElementById('uiDriverPhone').innerHTML = `<i class="bi bi-telephone-fill"></i> ${driverPhone}`;
-            document.getElementById('uiDriverPhoneBtn').href = `tel:${driverPhone}`;
-
-            // Ẩn nút Hủy tìm kiếm nếu nó đang hiện, nhưng nút Hủy chuyến sẽ được bật lên thông qua việc reload trang hoặc xử lý DOM (ở đây nếu không reload, form hủy chuyến mặc định đang bị ẩn bằng cú pháp Razor. Cách tốt nhất để khách hủy chuyến ngay sau khi nhận là reload lại trang để Razor load đúng form Hủy chuyến).
             window.location.reload();
             });
 
-            // Kịch bản: Tài xế bấm Đã tới điểm đón
             connection.on("DriverArrived", function (dropLat, dropLng) {
-            window.location.reload(); // Tải lại để loại bỏ nút Hủy và load lại đường đi chuẩn xác
+            window.location.reload();
             });
 
-            // Kịch bản: Hoàn thành chuyến đi
             connection.on("RideCompleted", function () {
             document.getElementById('stateSearching').style.display = 'none';
             document.getElementById('stateDriverInfo').style.display = 'none';

@@ -3,6 +3,7 @@
     ViewData["Title"] = "Đặt xe";
 }
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -62,9 +63,8 @@
         // Ép body nhận class map-page để gỡ padding của thẻ main
         document.body.classList.add('map-page');
 
-        // Khởi tạo bản đồ, chuyển icon Zoom xuống góc phải dưới (để không đè lên search bar)
+        // Khởi tạo bản đồ
         var map = L.map('map', { zoomControl: false }).setView([10.7326, 106.6998], 14);
-
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OS' }).addTo(map);
 
         var pickupMarker = null, dropoffMarker = null, routeLine = null;
@@ -160,7 +160,9 @@
         else if (dropoffMarker == null) setDropoff(lat, lng, true);
         });
 
-        // Vẽ đường, tính tiền và HIỆN BOTTOM SHEET
+        // =======================================================
+        // HÀM ĐÃ ĐƯỢC CẬP NHẬT THEO YÊU CẦU
+        // =======================================================
         function checkAndDrawRoute() {
         if (pickupMarker != null && dropoffMarker != null) {
         if(routeLine) map.removeLayer(routeLine);
@@ -169,12 +171,35 @@
         // Ép bản đồ lệch xuống dưới một chút để tuyến đường không bị Bottom Sheet che mất
         map.fitBounds(routeLine.getBounds(), { paddingBottomRight: [0, 200], paddingTopLeft: [0, 100] });
 
-        let dist = calculateDistanceClient(pickupMarker.getLatLng().lat, pickupMarker.getLatLng().lng, dropoffMarker.getLatLng().lat, dropoffMarker.getLatLng().lng);
-        document.getElementById('distDisplay').innerText = dist;
+        // Tính khoảng cách và ép kiểu về số thực (float)
+        let dist = parseFloat(calculateDistanceClient(pickupMarker.getLatLng().lat, pickupMarker.getLatLng().lng, dropoffMarker.getLatLng().lat, dropoffMarker.getLatLng().lng));
+        document.getElementById('distDisplay').innerText = dist.toFixed(1);
 
         let fare = 20000;
         if (dist > 2) fare += (dist - 2) * 10000;
         document.getElementById('fareDisplay').innerText = Math.round(fare).toLocaleString('vi-VN');
+
+        // KIỂM TRA RÀNG BUỘC KHOẢNG CÁCH (1km - 50km)
+        let submitBtn = document.getElementById('submitBtn');
+
+        if (dist < 1.0) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = "QUÃNG ĐƯỜNG QUÁ NGẮN (< 1KM)";
+        submitBtn.classList.replace('btn-liquid', 'btn-secondary');
+        Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'Khoảng cách tối thiểu phải từ 1 km', showConfirmButton: false, timer: 3500 });
+        }
+        else if (dist > 50.0) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = "QUÃNG ĐƯỜNG QUÁ XA (> 50KM)";
+        submitBtn.classList.replace('btn-liquid', 'btn-secondary');
+        Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'Khoảng cách tối đa là 50 km', showConfirmButton: false, timer: 3500 });
+        }
+        else {
+        // Hợp lệ -> Mở khóa nút bấm
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "XÁC NHẬN ĐẶT XE";
+        submitBtn.classList.replace('btn-secondary', 'btn-liquid');
+        }
 
         // BẬT BOTTOM SHEET LÊN
         document.getElementById('bookingSheet').style.display = 'block';
@@ -197,6 +222,12 @@
 
         // ẨN BOTTOM SHEET ĐI
         document.getElementById('bookingSheet').style.display = 'none';
+
+        // Reset trạng thái nút bấm về mặc định
+        let submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "XÁC NHẬN ĐẶT XE";
+        submitBtn.classList.replace('btn-secondary', 'btn-liquid');
 
         // Reset lại view map về mặc định
         map.setView([10.7326, 106.6998], 14);
