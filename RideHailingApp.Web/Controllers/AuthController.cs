@@ -76,6 +76,17 @@ namespace RideHailingApp.Web.Controllers
                 var user = _authService.Login(model);
                 if (user != null)
                 {
+                    // ========================================================
+                    // FIX: KIỂM TRA TRẠNG THÁI TÀI KHOẢN TRƯỚC KHI ĐĂNG NHẬP
+                    // ========================================================
+                    if (user.IsBanned)
+                    {
+                        // Thêm thông báo lỗi và trả về View mà không cấp Cookie
+                        ModelState.AddModelError("", "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ.");
+                        return View(model);
+                    }
+                    // ========================================================
+
                     // Tạo thông tin định danh cho Cookie (Claims)
                     var claims = new List<Claim>
                     {

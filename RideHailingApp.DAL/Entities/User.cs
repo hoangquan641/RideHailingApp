@@ -31,5 +31,7 @@ namespace RideHailingApp.DAL.Entities
 
         [InverseProperty("Driver")]
         public virtual ICollection<Ride> DriverRides { get; set; }
+
+        public bool IsBanned { get; set; } = false; // Phục vụ tính năng Khóa tài khoản
     }
 }
