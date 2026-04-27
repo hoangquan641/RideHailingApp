@@ -1,6 +1,7 @@
 ﻿@model RideHailingApp.Common.DTOs.RegisterDTO
 @{
     ViewData["Title"] = "Đăng ký";
+    var errorMessage = ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).FirstOrDefault();
 }
 
 <div class="auth-glass-card">
@@ -21,8 +22,18 @@
         </div>
 
         <div class="auth-input-group">
+            <i class="bi bi-envelope"></i>
+            <input asp-for="Email" type="email" placeholder="Địa chỉ Email" required />
+        </div>
+
+        <div class="auth-input-group">
             <i class="bi bi-lock"></i>
-            <input asp-for="Password" type="password" placeholder="Mật khẩu" required />
+            <input asp-for="Password" type="password" placeholder="Mật khẩu (Tối thiểu 8 ký tự)" required />
+        </div>
+
+        <div class="auth-input-group">
+            <i class="bi bi-check-circle"></i>
+            <input asp-for="ConfirmPassword" type="password" placeholder="Xác nhận lại mật khẩu" required />
         </div>
 
         <div class="auth-input-group position-relative dropdown-glass-wrapper">
@@ -55,20 +66,38 @@
         // Logic xử lý cho Custom Dropdown Role
         document.querySelectorAll('.glass-dropdown-menu .dropdown-item').forEach(item => {
             item.addEventListener('click', function(e) {
-                e.preventDefault(); // Ngăn trình duyệt nhảy trang
-                
-                // Lấy giá trị (2 hoặc 3) và chữ hiển thị
+                e.preventDefault();
+
                 let val = this.getAttribute('data-value');
                 let text = this.innerText;
-                
-                // 1. Cập nhật giá trị cho thẻ ẩn để Form gửi về Backend
+
                 document.getElementById('RoleInput').value = val;
-                
-                // 2. Cập nhật chữ hiển thị lên giao diện và đổi màu trắng cho sáng lên
+
                 let dropdownText = document.getElementById('roleDropdownText');
                 dropdownText.innerText = text;
                 dropdownText.style.color = 'white';
             });
         });
+
+        // BỔ SUNG: TOAST NOTIFICATION BÁO LỖI
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+                <text>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 5000,
+                            timerProgressBar: true
+                        });
+
+                        Toast.fire({
+                            icon: 'error',
+                            title: '@Html.Raw(errorMessage)'
+                        });
+                    });
+                </text>
+        }
     </script>
 }

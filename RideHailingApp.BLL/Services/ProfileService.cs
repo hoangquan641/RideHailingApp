@@ -6,6 +6,9 @@ namespace RideHailingApp.BLL.Services
     public interface IProfileService
     {
         bool ChangePassword(int userId, string currentPassword, string newPassword);
+
+        // Bổ sung hàm cập nhật thông tin
+        bool UpdateProfile(int userId, RideHailingApp.Common.DTOs.UpdateProfileDTO model);
     }
 
     public class ProfileService : IProfileService
@@ -32,6 +35,25 @@ namespace RideHailingApp.BLL.Services
 
             // 3. Mã hóa mật khẩu mới và cập nhật
             user.PasswordHash = PasswordHasher.HashPassword(newPassword);
+
+            _context.SaveChanges();
+            return true;
+        }
+
+        public bool UpdateProfile(int userId, RideHailingApp.Common.DTOs.UpdateProfileDTO model)
+        {
+            var user = _context.Users.Find(userId);
+            if (user == null) return false;
+
+            // Chỉ cập nhật các trường cơ bản
+            user.FullName = model.FullName;
+            user.Email = model.Email;
+
+            // BỔ SUNG: Nếu có upload ảnh mới (AvatarUrl không rỗng) thì mới gán vào DB
+            if (!string.IsNullOrEmpty(model.AvatarUrl))
+            {
+                user.AvatarUrl = model.AvatarUrl;
+            }
 
             _context.SaveChanges();
             return true;

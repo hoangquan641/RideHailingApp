@@ -25,8 +25,8 @@ namespace RideHailingApp.BLL.Services
 
         public bool Register(RegisterDTO model)
         {
-            // Kiểm tra xem số điện thoại đã tồn tại chưa
-            if (_context.Users.Any(u => u.PhoneNumber == model.PhoneNumber))
+            // Kiểm tra xem số điện thoại HOẶC email đã tồn tại chưa (Xử lý ngoại lệ A2)
+            if (_context.Users.Any(u => u.PhoneNumber == model.PhoneNumber || u.Email == model.Email))
             {
                 return false;
             }
@@ -34,11 +34,11 @@ namespace RideHailingApp.BLL.Services
             var user = new User
             {
                 PhoneNumber = model.PhoneNumber,
+                Email = model.Email,
                 PasswordHash = PasswordHasher.HashPassword(model.Password),
                 FullName = model.FullName,
                 Role = model.Role,
-                // Khi đăng ký, nếu là tài xế thì để false, ngược lại là null
-                IsDriverAvailable = model.Role == Common.Enums.RoleEnum.Driver ? false : (bool?)null
+                IsDriverAvailable = model.Role == Common.Enums.RoleEnum.Driver ? false : null
             };
 
             _context.Users.Add(user);

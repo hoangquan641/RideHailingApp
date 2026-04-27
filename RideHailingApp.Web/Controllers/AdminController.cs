@@ -1,9 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RideHailingApp.BLL.Services;
+using RideHailingApp.Common.DTOs;
 using System;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace RideHailingApp.Web.Controllers
 {
@@ -12,11 +17,14 @@ namespace RideHailingApp.Web.Controllers
     {
         private readonly IAdminService _adminService;
         private readonly IProfileService _profileService;
+        private readonly RideHailingApp.DAL.Data.ApplicationDbContext _context; // BỔ SUNG DÒNG NÀY
 
-        public AdminController(IAdminService adminService, IProfileService profileService)
+        // BỔ SUNG ApplicationDbContext VÀO CONSTRUCTOR
+        public AdminController(IAdminService adminService, IProfileService profileService, RideHailingApp.DAL.Data.ApplicationDbContext context)
         {
             _adminService = adminService;
             _profileService = profileService;
+            _context = context; // BỔ SUNG DÒNG NÀY
         }
 
         // --- 1. BÁO CÁO THỐNG KÊ (UC-ADM-02) ---
@@ -78,15 +86,65 @@ namespace RideHailingApp.Web.Controllers
             ViewBag.RoleName = User.IsInRole("Driver") ? "Tài xế đối tác"
                              : User.IsInRole("Admin") ? "Quản trị viên"
                              : "Khách hàng thành viên";
-            return View();
+
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return RedirectToAction("Login", "Auth");
+
+            int userId = int.Parse(userIdClaim.Value);
+            var user = _context.Users.Find(userId);
+
+            if (user == null) return RedirectToAction("Login", "Auth");
+
+            var model = new RideHailingApp.Common.DTOs.UpdateProfileDTO
+            {
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                AvatarUrl = user.AvatarUrl // <--- ĐÂY CHÍNH LÀ ĐIỂM QUAN TRỌNG ĐỂ HIỂN THỊ LẠI ẢNH
+            };
+
+            return View(model);
         }
 
         [HttpPost]
-        public IActionResult UpdateInfo(string fullName, string phone)
+        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
         {
-            // Tương lai: Thêm logic cập nhật vào DB qua _profileService tại đây
-            TempData["Success"] = "Cập nhật thông tin thành công!";
-            return RedirectToAction("Profile");
+            if (ModelState.IsValid)
+            {
+                var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+                if (userIdClaim != null)
+                {
+                    int userId = int.Parse(userIdClaim.Value);
+
+                    // XỬ LÝ LƯU FILE ẢNH (Dùng avatarFile thay vì model.AvatarFile)
+                    if (avatarFile != null)
+                    {
+                        string folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
+                        if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+
+                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
+                        string filePath = Path.Combine(folder, fileName);
+
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await avatarFile.CopyToAsync(stream);
+                        }
+
+                        // Gán đường dẫn vào model để lưu xuống Database
+                        model.AvatarUrl = "/uploads/avatars/" + fileName;
+                    }
+
+                    bool isSuccess = _profileService.UpdateProfile(userId, model);
+
+                    if (isSuccess)
+                    {
+                        TempData["Success"] = "Cập nhật hồ sơ thành công!";
+                        return RedirectToAction("Profile");
+                    }
+                }
+            }
+            TempData["Error"] = "Vui lòng kiểm tra lại thông tin nhập vào.";
+            return View("Profile", model);
         }
 
         [HttpGet]

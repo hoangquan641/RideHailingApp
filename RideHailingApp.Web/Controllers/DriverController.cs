@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using RideHailingApp.BLL.Services;
+using RideHailingApp.Common.DTOs;
 using RideHailingApp.DAL.Data;
 using RideHailingApp.Web.Hubs;
-using System.Security.Claims;
-using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace RideHailingApp.Web.Controllers
@@ -98,10 +99,44 @@ namespace RideHailingApp.Web.Controllers
 
         //-------------------------- POST ACTIONS -------------------//
         [HttpPost]
-        public IActionResult UpdateInfo(string fullName, string phone)
+        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
         {
-            TempData["Success"] = "Cập nhật thông tin thành công!";
-            return RedirectToAction("Profile");
+            if (ModelState.IsValid)
+            {
+                var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+                if (userIdClaim != null)
+                {
+                    int userId = int.Parse(userIdClaim.Value);
+
+                    // XỬ LÝ LƯU FILE ẢNH (Dùng avatarFile thay vì model.AvatarFile)
+                    if (avatarFile != null)
+                    {
+                        string folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
+                        if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+
+                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
+                        string filePath = Path.Combine(folder, fileName);
+
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await avatarFile.CopyToAsync(stream);
+                        }
+
+                        // Gán đường dẫn vào model để lưu xuống Database
+                        model.AvatarUrl = "/uploads/avatars/" + fileName;
+                    }
+
+                    bool isSuccess = _profileService.UpdateProfile(userId, model);
+
+                    if (isSuccess)
+                    {
+                        TempData["Success"] = "Cập nhật hồ sơ thành công!";
+                        return RedirectToAction("Profile");
+                    }
+                }
+            }
+            TempData["Error"] = "Vui lòng kiểm tra lại thông tin nhập vào.";
+            return View("Profile", model);
         }
 
         [HttpPost]
@@ -192,7 +227,7 @@ namespace RideHailingApp.Web.Controllers
                     driver.CurrentLng = model.Lng;
                     _context.SaveChanges();
 
-                    // 1. KIỂM TRA TÀI XẾ CÓ ĐANG TRONG CHUYẾN ĐI KHÔNG?
+                    // KIỂM TRA TÀI XẾ CÓ ĐANG TRONG CHUYẾN ĐI KHÔNG?
                     var activeRide = _context.Rides.FirstOrDefault(r =>
                         r.DriverId == driverId &&
                         (r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ||
@@ -288,6 +323,46 @@ namespace RideHailingApp.Web.Controllers
             }
 
             return Ok();
+        }
+
+        // --- TÀI XẾ CHỦ ĐỘNG HỦY CHUYẾN ---
+        [HttpPost]
+        public async Task<IActionResult> CancelRide(int rideId, string cancelReason)
+        {
+            var driverIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (driverIdClaim != null)
+            {
+                int driverId = int.Parse(driverIdClaim.Value);
+
+                // Lấy chuyến xe mà tài xế này đang nhận
+                var ride = _context.Rides.FirstOrDefault(r => r.Id == rideId && r.DriverId == driverId);
+
+                // Cho phép hủy khi đang ở trạng thái Accepted (Đang đến đón) hoặc InProgress
+                if (ride != null &&
+                   (ride.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ||
+                    ride.Status == RideHailingApp.Common.Enums.RideStatusEnum.InProgress))
+                {
+                    // 1. Cập nhật trạng thái chuyến xe và lý do
+                    ride.Status = RideHailingApp.Common.Enums.RideStatusEnum.Cancelled;
+                    ride.CancelReason = cancelReason;
+
+                    // 2. Trả tài xế về trạng thái Sẵn sàng nhận cuốc mới
+                    var driver = _context.Users.Find(driverId);
+                    if (driver != null)
+                    {
+                        driver.IsDriverAvailable = true;
+                    }
+
+                    _context.SaveChanges();
+
+                    // 3. Bắn SignalR thông báo cho máy Khách hàng biết tài xế đã hủy
+                    await _hubContext.Clients.User(ride.CustomerId.ToString())
+                        .SendAsync("RideCancelledByDriver", cancelReason);
+
+                    TempData["Success"] = "Đã hủy chuyến thành công.";
+                }
+            }
+            return RedirectToAction("Index");
         }
     }
 }

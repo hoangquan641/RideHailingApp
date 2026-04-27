@@ -12,6 +12,11 @@ namespace RideHailingApp.DAL.Entities
         [Required, MaxLength(20)]
         public string PhoneNumber { get; set; }
 
+        [Required, MaxLength(100), EmailAddress]
+        public string Email { get; set; } // Bổ sung trường Email
+
+        public string? AvatarUrl { get; set; } // BỔ SUNG: Lưu đường dẫn ảnh đại diện
+
         [Required]
         public string PasswordHash { get; set; }
 

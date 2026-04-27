@@ -48,10 +48,15 @@ namespace RideHailingApp.Web.Controllers
                 bool isSuccess = _authService.Register(model);
                 if (isSuccess)
                 {
-                    TempData["Success"] = "Đăng ký thành công! Vui lòng đăng nhập.";
+                    // Ngoại lệ A4: Nhắc nhở Tài xế cập nhật thông tin xe sau khi đăng ký
+                    if (model.Role == Common.Enums.RoleEnum.Driver)
+                        TempData["Success"] = "Đăng ký thành công! Vui lòng đăng nhập và cập nhật thông tin xe tại Hồ sơ.";
+                    else
+                        TempData["Success"] = "Đăng ký thành công! Vui lòng đăng nhập.";
+
                     return RedirectToAction("Login");
                 }
-                ModelState.AddModelError("", "Số điện thoại đã tồn tại trong hệ thống.");
+                ModelState.AddModelError("", "Số điện thoại hoặc Email này đã được sử dụng.");
             }
             return View(model);
         }

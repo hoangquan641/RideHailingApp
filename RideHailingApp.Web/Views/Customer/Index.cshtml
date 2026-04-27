@@ -344,6 +344,29 @@ else
             Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'Chuyến đi kết thúc!', showConfirmButton: false, timer: 3000 });
             });
 
+            // ================================================================
+            // BỔ SUNG: LẮNG NGHE SỰ KIỆN TÀI XẾ HỦY CHUYẾN (KHÁCH KHÔNG ĐẾN)
+            // ================================================================
+            connection.on("RideCancelledByDriver", function (reason) {
+            // Tắt bộ đếm cảnh báo mất tín hiệu (nếu có)
+            clearTimeout(signalTimeout);
+
+            Swal.fire({
+            icon: 'error',
+            title: 'Chuyến xe đã bị hủy!',
+            text: `Tài xế đã hủy chuyến đi này với lý do: "${reason}".`,
+            confirmButtonText: 'Đặt lại chuyến mới',
+            confirmButtonColor: '#00b14f',
+            allowOutsideClick: false
+            }).then((result) => {
+            if (result.isConfirmed) {
+            // Trả khách hàng về màn hình Đặt xe ban đầu
+            window.location.href = '/Customer/BookRide';
+            }
+            });
+            });
+            // ================================================================
+
             connection.start().catch(err => console.error(err));
         </script>
     }
