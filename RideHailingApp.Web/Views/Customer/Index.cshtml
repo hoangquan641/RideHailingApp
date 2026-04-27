@@ -85,7 +85,7 @@ else
 
                 <div class="text-center mb-3">
                     <span class="badge bg-success rounded-pill px-3 py-2 mb-2 animate__animated animate__pulse animate__infinite" id="rideStatusBadge">
-                        @(isInProgress ? "ĐANG DI CHUYỂN TỚI ĐIỂM ĐẾN" : "TÀI XẾ ĐANG ĐẾN ĐÓN BẠY")
+                        @(isInProgress ? "ĐANG DI CHUYỂN TỚI ĐIỂM ĐẾN" : "TÀI XẾ ĐANG ĐẾN ĐÓN BẠN")
                     </span>
                     <h1 class="text-success fw-bold display-4 mb-0">@activeRide.Fare.ToString("N0")</h1>
                     <p class="text-muted fw-medium small mb-0">CƯỚC PHÍ (VNĐ)</p>
@@ -239,8 +239,8 @@ else
             let destinationIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
 
             let pickupMarker = L.marker([@activeRide.PickupLat, @activeRide.PickupLng], { icon: customerIcon }).addTo(map).bindPopup("Điểm đón");
+            let dropoffMarker = L.marker([@activeRide.DropoffLat, @activeRide.DropoffLng], { icon: destinationIcon }).addTo(map).bindPopup("Điểm đến");
             let driverMarker = null;
-            let dropoffMarker = null;
             let routingControl = null;
 
             // HÀM VẼ LỘ TRÌNH ĐA NĂNG (Cập nhật hiển thị ETA)
@@ -327,8 +327,21 @@ else
             }
             });
 
-            connection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng) {
-            window.location.reload();
+            // NÂNG CẤP: Không dùng reload nữa để tránh chớp trang!
+            connection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng, licensePlate, vehicleType) {
+            // 1. Cập nhật các text trên UI
+            document.getElementById('uiDriverName').innerText = driverName;
+            document.getElementById('uiDriverPhone').innerHTML = `<i class="bi bi-telephone-fill"></i> ${driverPhone}`;
+            document.getElementById('uiPlate').innerText = licensePlate;
+            document.getElementById('uiVehicle').innerText = vehicleType;
+            document.getElementById('uiDriverPhoneBtn').href = `tel:${driverPhone}`;
+
+            // 2. Chuyển đổi màn hình từ "Đang tìm" sang "Tài xế đang đến"
+            document.getElementById('stateSearching').style.display = 'none';
+            document.getElementById('stateDriverInfo').style.display = 'block';
+
+            // 3. Vẽ ngay lập tức đường đi từ Tài xế tới Điểm đón
+            drawRoute(driverLat, driverLng, @activeRide.PickupLat, @activeRide.PickupLng, true);
             });
 
             connection.on("DriverArrived", function (dropLat, dropLng) {

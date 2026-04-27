@@ -15,5 +15,8 @@ namespace RideHailingApp.Common.DTOs
         public string? PhoneNumber { get; set; }
 
         public string? AvatarUrl { get; set; }
+
+        public string? LicensePlate { get; set; }
+        public string? VehicleType { get; set; }
     }
 }

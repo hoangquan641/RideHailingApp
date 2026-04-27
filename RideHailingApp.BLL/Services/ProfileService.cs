@@ -45,14 +45,22 @@ namespace RideHailingApp.BLL.Services
             var user = _context.Users.Find(userId);
             if (user == null) return false;
 
-            // Chỉ cập nhật các trường cơ bản
             user.FullName = model.FullName;
             user.Email = model.Email;
 
-            // BỔ SUNG: Nếu có upload ảnh mới (AvatarUrl không rỗng) thì mới gán vào DB
             if (!string.IsNullOrEmpty(model.AvatarUrl))
             {
                 user.AvatarUrl = model.AvatarUrl;
+            }
+
+            // BỔ SUNG: Cập nhật thông tin xe nếu có (An toàn với Customer vì dữ liệu sẽ là null)
+            if (!string.IsNullOrEmpty(model.LicensePlate))
+            {
+                user.LicensePlate = model.LicensePlate;
+            }
+            if (!string.IsNullOrEmpty(model.VehicleType))
+            {
+                user.VehicleType = model.VehicleType;
             }
 
             _context.SaveChanges();

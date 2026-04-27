@@ -85,10 +85,31 @@ namespace RideHailingApp.Web.Controllers
         public IActionResult Profile()
         {
             ViewBag.UserName = User.Identity.Name;
-            ViewBag.RoleName = User.IsInRole("Driver") ? "Tài xế đối tác"
-                             : User.IsInRole("Admin") ? "Quản trị viên"
-                             : "Khách hàng thành viên";
-            return View();
+            ViewBag.RoleName = "Tài xế đối tác";
+
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return RedirectToAction("Login", "Auth");
+
+            int userId = int.Parse(userIdClaim.Value);
+            var user = _context.Users.Find(userId);
+
+            if (user == null) return RedirectToAction("Login", "Auth");
+
+            // Tạo đối tượng Model chứa đầy đủ thông tin để ném ra Giao diện (View)
+            var model = new RideHailingApp.Common.DTOs.UpdateProfileDTO
+            {
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                AvatarUrl = user.AvatarUrl,
+
+                // Bổ sung load thông tin xe để hiển thị vào 2 ô nhập liệu của Tài xế
+                LicensePlate = user.LicensePlate,
+                VehicleType = user.VehicleType
+            };
+
+            // LỖI NẰM Ở ĐÂY: Bắt buộc phải có (model) truyền vào
+            return View(model);
         }
 
         [HttpGet]
@@ -205,8 +226,16 @@ namespace RideHailingApp.Web.Controllers
             if (_rideService.AcceptRide(rideId, driverId))
             {
                 var ride = _context.Rides.Include(r => r.Driver).First(r => r.Id == rideId);
+
+                // BỔ SUNG: Truyền thêm Biển số và Loại xe
                 await _hubContext.Clients.User(ride.CustomerId.ToString()).SendAsync("RideAccepted",
-                    ride.Driver.FullName, ride.Driver.PhoneNumber, ride.Driver.CurrentLat, ride.Driver.CurrentLng);
+                    ride.Driver.FullName,
+                    ride.Driver.PhoneNumber,
+                    ride.Driver.CurrentLat,
+                    ride.Driver.CurrentLng,
+                    ride.Driver.LicensePlate ?? "Đang cập nhật",
+                    ride.Driver.VehicleType ?? "GrabCar");
+
                 return RedirectToAction("Index");
             }
             return BadRequest();
