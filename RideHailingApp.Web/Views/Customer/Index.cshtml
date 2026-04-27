@@ -85,7 +85,7 @@ else
 
                 <div class="text-center mb-3">
                     <span class="badge bg-success rounded-pill px-3 py-2 mb-2 animate__animated animate__pulse animate__infinite" id="rideStatusBadge">
-                        @(isInProgress ? "ĐANG DI CHUYỂN TỚI ĐIỂM ĐẾN" : "TÀI XẾ ĐANG ĐẾN ĐÓN BẠN")
+                        @(isInProgress ? "ĐANG DI CHUYỂN TỚI ĐIỂM ĐẾN" : "TÀI XẾ ĐANG ĐẾN ĐÓN BẠY")
                     </span>
                     <h1 class="text-success fw-bold display-4 mb-0">@activeRide.Fare.ToString("N0")</h1>
                     <p class="text-muted fw-medium small mb-0">CƯỚC PHÍ (VNĐ)</p>
@@ -101,6 +101,14 @@ else
                                 <div>
                                     <strong class="text-dark fs-6 d-block" id="uiDriverName">@(activeRide.Driver?.FullName ?? "...")</strong>
                                     <small class="text-secondary fw-medium" id="uiDriverPhone"><i class="bi bi-telephone-fill"></i> @(activeRide.Driver?.PhoneNumber ?? "...")</small>
+
+                                    <div class="mt-1">
+                                        <span class="badge bg-light text-dark border small">
+                                            <i class="bi bi-car-front-fill text-success me-1"></i>
+                                            <span id="uiVehicle">@(activeRide.Driver?.VehicleType ?? "GrabCar")</span> •
+                                            <span class="fw-bold" id="uiPlate">@(activeRide.Driver?.LicensePlate ?? "Đang cập nhật")</span>
+                                        </span>
+                                    </div>
                                 </div>
                                 <a href="tel:@(activeRide.Driver?.PhoneNumber)" class="btn btn-success btn-sm rounded-circle shadow-sm" id="uiDriverPhoneBtn" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;">
                                     <i class="bi bi-telephone-fill"></i>
@@ -143,10 +151,22 @@ else
                     <div class="bg-success bg-opacity-10 p-3 d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px;">
                         <i class="bi bi-check-lg text-success" style="font-size: 3rem;"></i>
                     </div>
-                    <h4 class="fw-bold text-dark">Chuyến đi hoàn thành!</h4>
-                    <p class="text-muted small mb-4">Cảm ơn bạn đã đồng hành cùng chúng tôi.</p>
+                    <h4 class="fw-bold text-dark">Bạn đã đến nơi!</h4>
+                    <p class="text-muted small">Cước phí: <b class="text-success">@activeRide.Fare.ToString("N0")đ</b></p>
+
+                    <div class="my-4">
+                        <p class="small fw-bold mb-2">Bạn thấy tài xế thế nào?</p>
+                        <div class="d-flex justify-content-center gap-2 fs-3 text-warning">
+                            <i class="bi bi-star-fill" onclick="setRating(1)"></i>
+                            <i class="bi bi-star-fill" onclick="setRating(2)"></i>
+                            <i class="bi bi-star-fill" onclick="setRating(3)"></i>
+                            <i class="bi bi-star-fill" onclick="setRating(4)"></i>
+                            <i class="bi bi-star-fill" onclick="setRating(5)"></i>
+                        </div>
+                    </div>
+
                     <button class="btn btn-liquid w-100 rounded-pill py-3 text-white fw-bold shadow-sm" onclick="location.reload()">
-                        ĐẶT CHUYẾN MỚI
+                        HOÀN TẤT & ĐẶT CHUYẾN MỚI
                     </button>
                 </div>
             </div>
@@ -167,7 +187,6 @@ else
         <script>
             document.body.classList.add('map-page');
 
-            // --- HÀM XỬ LÝ POPUP HỦY CHUYẾN CÓ LÝ DO ---
             function promptCancelReason(rideId) {
             Swal.fire({
             title: 'Lý do hủy chuyến?',
@@ -203,7 +222,6 @@ else
             });
             }
 
-            // 1. ANIMATION ẨN/HIỆN PANEL
             let isPanelMinimized = false;
             function toggleCustomerPanel() {
             const content = document.getElementById('customerPanelContent');
@@ -213,7 +231,6 @@ else
             handle.classList.toggle('collapsed', isPanelMinimized);
             }
 
-            // 2. CẤU HÌNH BẢN ĐỒ VÀ ICON
             let map = L.map('map', { zoomControl: false }).setView([@activeRide.PickupLat, @activeRide.PickupLng], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
@@ -226,7 +243,7 @@ else
             let dropoffMarker = null;
             let routingControl = null;
 
-            // 3. HÀM VẼ LỘ TRÌNH ĐA NĂNG
+            // HÀM VẼ LỘ TRÌNH ĐA NĂNG (Cập nhật hiển thị ETA)
             function drawRoute(startLat, startLng, endLat, endLng, isDriverToPickup) {
             if(routingControl) map.removeControl(routingControl);
 
@@ -242,21 +259,31 @@ else
 
             routingControl = L.Routing.control({
             waypoints: [ L.latLng(startLat, startLng), L.latLng(endLat, endLng) ],
-            routeWhileDragging: false, addWaypoints: false, show: false,
+            routeWhileDragging: false,
+            addWaypoints: false,
+            show: false,
             lineOptions: { styles: [{ color: isDriverToPickup ? '#00b14f' : '#dc3545', weight: 6, opacity: 0.8 }] }
             }).addTo(map);
 
+            // --- LOGIC CẬP NHẬT KHOẢNG CÁCH VÀ ETA ---
             routingControl.on('routesfound', function(e) {
-            let distanceKm = (e.routes[0].summary.totalDistance / 1000).toFixed(1);
-            document.getElementById('distanceText').innerText = isDriverToPickup
-            ? `Tài xế đang cách bạn ${distanceKm} km`
-            : `Còn ${distanceKm} km tới điểm đến`;
+            let route = e.routes[0];
+            let distanceKm = (route.summary.totalDistance / 1000).toFixed(1);
+
+            // Lấy thời gian dự kiến từ Leaflet (giây) chuyển sang phút
+            let etaMinutes = Math.ceil(route.summary.totalTime / 60);
+
+            const distText = document.getElementById('distanceText');
+            if(distText) {
+            distText.innerHTML = isDriverToPickup
+            ? `<i class="bi bi-clock-history"></i> Tài xế đến sau <b>${etaMinutes} phút</b> (${distanceKm} km)`
+            : `<i class="bi bi-flag-fill"></i> Còn <b>${etaMinutes} phút</b> nữa sẽ đến điểm đích (${distanceKm} km)`;
+            }
 
             map.fitBounds(L.latLngBounds([startLat, startLng], [endLat, endLng]), { paddingBottomRight: [0, 400] });
             });
             }
 
-            // 4. KHÔI PHỤC TRẠNG THÁI NẾU F5 TRÌNH DUYỆT
             @if (isAccepted && activeRide.Driver != null)
             {
                 <text>drawRoute(@(activeRide.Driver.CurrentLat ?? 0), @(activeRide.Driver.CurrentLng ?? 0), @activeRide.PickupLat, @activeRide.PickupLng, true);</text>
@@ -266,8 +293,39 @@ else
                 <text>drawRoute(@activeRide.PickupLat, @activeRide.PickupLng, @activeRide.DropoffLat, @activeRide.DropoffLng, false);</text>
             }
 
-            // 5. LẮNG NGHE SIGNALR TỪ TÀI XẾ
             const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
+
+            let signalTimeout;
+            connection.on("UpdateDriverLocation", function (lat, lng) {
+            if (driverMarker && routingControl) {
+            driverMarker.setLatLng([lat, lng]);
+
+            let destLat = @(isInProgress ? "dropoffMarker ? dropoffMarker.getLatLng().lat : 0" : "pickupMarker ? pickupMarker.getLatLng().lat : 0");
+            let destLng = @(isInProgress ? "dropoffMarker ? dropoffMarker.getLatLng().lng : 0" : "pickupMarker ? pickupMarker.getLatLng().lng : 0");
+
+            if (destLat !== 0) {
+            routingControl.setWaypoints([
+            L.latLng(lat, lng),
+            L.latLng(destLat, destLng)
+            ]);
+            }
+
+            const distText = document.getElementById('distanceText');
+            if (distText) {
+            distText.classList.remove('text-danger');
+            distText.classList.add('text-primary');
+            }
+
+            clearTimeout(signalTimeout);
+            signalTimeout = setTimeout(function() {
+            if (distText) {
+            distText.innerText = "Đang mất kết nối với tài xế...";
+            distText.classList.remove('text-primary');
+            distText.classList.add('text-danger');
+            }
+            }, 30000);
+            }
+            });
 
             connection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng) {
             window.location.reload();

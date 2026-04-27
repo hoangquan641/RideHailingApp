@@ -33,5 +33,7 @@ namespace RideHailingApp.DAL.Entities
         public virtual ICollection<Ride> DriverRides { get; set; }
 
         public bool IsBanned { get; set; } = false; // Phục vụ tính năng Khóa tài khoản
+        public string? LicensePlate { get; set; } // Biển số xe
+        public string? VehicleType { get; set; }  // Loại xe
     }
 }

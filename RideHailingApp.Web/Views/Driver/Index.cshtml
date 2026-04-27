@@ -309,7 +309,7 @@
         }
         }
 
-        // 3. KHỞI TẠO TRẠNG THÁI (Đã sửa lại logic sessionStorage)
+        // 3. KHỞI TẠO TRẠNG THÁI
         let savedOnlineState = sessionStorage.getItem('driverOnlineState') === 'true';
 
         if (hasActiveRide) {
@@ -332,55 +332,126 @@
         updateOnlineUI(true);
         startTracking();
 
-        // TỪ TAB KHÁC CHUYỂN VỀ THÌ BẬT LẠI DB NGAY
         fetch('/Driver/ToggleStatus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ isOnline: true })
         });
         } else {
-        // NẾU MỚI MỞ TRÌNH DUYỆT THÌ MẶC ĐỊNH LÀ TẮT
         isOnline = false;
         updateOnlineUI(false);
         }
 
         // 4. SỰ KIỆN NÚT BẬT/TẮT ONLINE
         const btnToggle = document.getElementById('btnToggleOnline');
+        let gpsIntervalId = null;
+
         if(btnToggle) {
         btnToggle.addEventListener('click', function() {
-        isOnline = !isOnline;
-        sessionStorage.setItem('driverOnlineState', isOnline);
-        if(isOnline) requestNotificationPermission();
+        if (hasActiveRide && isOnline) {
+        Swal.fire({
+        icon: 'error',
+        title: 'Lỗi thao tác',
+        text: 'Bạn phải hoàn thành chuyến đi hiện tại trước khi dừng làm việc!'
+        });
+        return;
+        }
 
+        let targetState = !isOnline;
+
+        if (targetState) {
+        if (!navigator.geolocation) {
+        Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Thiết bị của bạn không hỗ trợ định vị GPS.' });
+        return;
+        }
+
+        btnToggle.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Đang định vị...';
+
+        navigator.geolocation.getCurrentPosition(
+        function(pos) {
+        sendToggleRequest(targetState);
+        },
+        function(err) {
+        Swal.fire({
+        icon: 'error',
+        title: 'Yêu cầu quyền truy cập',
+        text: 'Bạn phải cấp quyền Vị trí (GPS) để có thể nhận chuyến.'
+        });
+        updateOnlineUI(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+        );
+        } else {
+        sendToggleRequest(targetState);
+        }
+        });
+        }
+
+        function sendToggleRequest(targetState) {
         fetch('/Driver/ToggleStatus', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ isOnline: isOnline })
-        });
+        body: new URLSearchParams({ isOnline: targetState })
+        })
+        .then(response => {
+        if (!response.ok) {
+        return response.text().then(text => { throw new Error(text || 'Lỗi kết nối Server'); });
+        }
 
+        isOnline = targetState;
+        sessionStorage.setItem('driverOnlineState', isOnline);
         updateOnlineUI(isOnline);
 
-        if(isOnline) {
-        audioEl.play().then(() => { audioEl.pause(); }).catch(e => console.log(e));
+        if (isOnline) {
+        requestNotificationPermission();
+        if(audioEl) audioEl.play().then(() => { audioEl.pause(); }).catch(e => console.log(e));
+
         startTracking();
+        startGpsLoop();
         } else {
-        if(watchId) navigator.geolocation.clearWatch(watchId);
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+        stopGpsLoop();
         }
+        })
+        .catch(err => {
+        Swal.fire({ icon: 'error', title: 'Không thể cập nhật', text: err.message });
+        updateOnlineUI(isOnline);
         });
         }
 
-        // 5. HIỂN THỊ POPUP CUỐC XE MỚI
+        // --- TỐI ƯU HÓA GPS LOOP (QUY TẮC SRS) ---
+        function startGpsLoop() {
+        if (gpsIntervalId) clearInterval(gpsIntervalId);
+        gpsIntervalId = setInterval(function () {
+        if (isOnline && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+        const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+        fetch('/Driver/UpdateLocation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pos)
+        });
+        }, null, { enableHighAccuracy: true });
+        }
+        }, 5000);
+        }
+
+        function stopGpsLoop() {
+        if (gpsIntervalId) {
+        clearInterval(gpsIntervalId);
+        gpsIntervalId = null;
+        }
+        }
+
+        if (isOnline) startGpsLoop();
+
         // 5. HIỂN THỊ POPUP CUỐC XE MỚI
         let currentRideData = { id: 0, lat: 0, lng: 0, declinedIds: "[]" };
         let rideTimeout, countdownInterval;
 
         function showNewRidePopup(rideId, customerName, customerPhone, pickup, dropoff, fare, rideDist, pLat, pLng, declinedJson, secondsLeft) {
         if (!isOnline || hasActiveRide) return;
-
-        // =======================================================
-        // CHỐNG SPAM: Nếu popup đang hiển thị rồi thì không làm gì cả
         if (document.getElementById('newRideSheet').classList.contains('show')) return;
-        // =======================================================
 
         currentRideData = { id: rideId, lat: pLat, lng: pLng, declinedIds: declinedJson };
 
@@ -399,7 +470,7 @@
         document.getElementById('modalDriverToPickupDist').innerText = distToPickup;
 
         document.getElementById('newRideSheet').classList.add('show');
-        audioEl.play().catch(e => console.log("Audio play blocked"));
+        if(audioEl) audioEl.play().catch(e => console.log("Audio play blocked"));
 
         const timerDisplay = document.getElementById('timerDisplay');
         clearInterval(countdownInterval);
@@ -413,26 +484,7 @@
         }, 1000);
         }
 
-        // 6. FIX LỖI: KIỂM TRA BỘ NHỚ ĐỆM KHI TỪ TAB KHÁC CHUYỂN VỀ
-        const pendingRideStr = sessionStorage.getItem('pendingRideRequest');
-        if (pendingRideStr && !hasActiveRide) {
-        const pendingData = JSON.parse(pendingRideStr);
-        const now = new Date().getTime();
-        const timePassed = Math.floor((now - pendingData.timestamp) / 1000);
-
-        if (timePassed < 15) {
-        const secondsRemaining = 15 - timePassed;
-        showNewRidePopup(
-        pendingData.rideId, pendingData.customerName, pendingData.customerPhone,
-        pendingData.pickup, pendingData.dropoff, pendingData.fare,
-        pendingData.rideDist, pendingData.pLat, pendingData.pLng,
-        pendingData.declinedJson, secondsRemaining
-        );
-        }
-        sessionStorage.removeItem('pendingRideRequest');
-        }
-
-        // 7. SIGNALR LẮNG NGHE CUỐC MỚI TRỰC TIẾP
+        // 7. SIGNALR LẮNG NGHE CUỐC MỚI
         const connection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
         connection.on("ReceiveRideRequest", function (...args) {
         showNewRidePopup(...args, 15);
@@ -463,5 +515,6 @@
 
         const acceptForm = document.getElementById('acceptForm');
         if(acceptForm) acceptForm.addEventListener('submit', stopAlarm);
+
     </script>
 }

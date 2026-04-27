@@ -6,37 +6,33 @@ using System.Threading.Tasks;
 
 namespace RideHailingApp.Web.Hubs
 {
-    [Authorize] // Chỉ người đã đăng nhập mới được kết nối
+    [Authorize]
     public class RideHub : Hub
     {
         private readonly IRideService _rideService;
 
-        // Tiêm Service từ tầng BLL vào để xử lý logic Database
         public RideHub(IRideService rideService)
         {
             _rideService = rideService;
         }
 
-        /// <summary>
-        /// Tự động kích hoạt khi người dùng đóng trình duyệt, tắt tab hoặc rớt mạng
-        /// </summary>
+        // --- BỔ SUNG: HÀM ĐẨY TỌA ĐỘ CHO KHÁCH HÀNG ---
+        public async Task SendLocationToCustomer(string customerId, decimal lat, decimal lng)
+        {
+            // Bắn tín hiệu "UpdateDriverLocation" kèm tọa độ tới riêng ID của khách hàng
+            await Clients.User(customerId).SendAsync("UpdateDriverLocation", lat, lng);
+        }
+
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            // Lấy User ID từ định danh kết nối (thường là ClaimTypes.NameIdentifier)
             var userIdStr = Context.UserIdentifier;
-
             if (!string.IsNullOrEmpty(userIdStr) && int.TryParse(userIdStr, out int userId))
             {
-                // CHỈ XỬ LÝ CHO TÀI XẾ: Tắt trạng thái nhận chuyến khi họ tắt Web/Chuyển tab
                 if (Context.User.IsInRole("Driver"))
                 {
                     _rideService.SetDriverAvailability(userId, false);
                 }
-
-                // KHÁCH HÀNG: Không hủy chuyến Pending khi họ chuyển tab
-                // => Không cần xử lý gì thêm
             }
-
             await base.OnDisconnectedAsync(exception);
         }
     }

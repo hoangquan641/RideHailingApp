@@ -2,6 +2,7 @@
 using RideHailingApp.Common.Helpers;
 using RideHailingApp.DAL.Data;
 using RideHailingApp.DAL.Entities;
+using System.Linq;
 
 namespace RideHailingApp.BLL.Services
 {
@@ -36,7 +37,8 @@ namespace RideHailingApp.BLL.Services
                 PasswordHash = PasswordHasher.HashPassword(model.Password),
                 FullName = model.FullName,
                 Role = model.Role,
-                IsDriverAvailable = model.Role == Common.Enums.RoleEnum.Driver ? false : null
+                // Khi đăng ký, nếu là tài xế thì để false, ngược lại là null
+                IsDriverAvailable = model.Role == Common.Enums.RoleEnum.Driver ? false : (bool?)null
             };
 
             _context.Users.Add(user);
@@ -46,13 +48,23 @@ namespace RideHailingApp.BLL.Services
 
         public User Login(LoginDTO model)
         {
-            // Băm mật khẩu người dùng nhập vào để so sánh với chuỗi Hash trong DB
+            // 1. Băm mật khẩu người dùng nhập vào để so sánh với chuỗi Hash trong DB
             var hash = PasswordHasher.HashPassword(model.Password);
 
-            return _context.Users.FirstOrDefault(u =>
+            var user = _context.Users.FirstOrDefault(u =>
                 u.PhoneNumber == model.PhoneNumber &&
                 u.PasswordHash == hash &&
                 !u.IsDeleted);
+
+            // 2. BỔ SUNG LOGIC: Reset trạng thái tài xế về Offline khi đăng nhập thành công
+            // Điều này ép tài xế phải chủ động bật "Sẵn sàng" trên App mới nhận được cuốc xe.
+            if (user != null && user.Role == Common.Enums.RoleEnum.Driver)
+            {
+                user.IsDriverAvailable = false;
+                _context.SaveChanges();
+            }
+
+            return user;
         }
     }
 }
