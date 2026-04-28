@@ -42,8 +42,8 @@ namespace RideHailingApp.Web.Controllers
             {
                 int driverId = int.Parse(driverIdClaim.Value);
 
-                var driver = _context.Users.Find(driverId);
-                ViewBag.IsOnline = driver?.IsDriverAvailable ?? false;
+                var driverProfile = _context.DriverProfiles.FirstOrDefault(d => d.UserId == driverId);
+                ViewBag.IsOnline = driverProfile?.IsDriverAvailable ?? false;
 
                 // Lấy cuốc xe ĐANG CHẠY kèm theo thông tin Khách hàng (Customer)
                 var activeRide = _context.Rides
@@ -92,6 +92,7 @@ namespace RideHailingApp.Web.Controllers
 
             int userId = int.Parse(userIdClaim.Value);
             var user = _context.Users.Find(userId);
+            var driverProfile = _context.DriverProfiles.FirstOrDefault(d => d.UserId == userId);
 
             if (user == null) return RedirectToAction("Login", "Auth");
 
@@ -103,9 +104,9 @@ namespace RideHailingApp.Web.Controllers
                 PhoneNumber = user.PhoneNumber,
                 AvatarUrl = user.AvatarUrl,
 
-                // Bổ sung load thông tin xe để hiển thị vào 2 ô nhập liệu của Tài xế
-                LicensePlate = user.LicensePlate,
-                VehicleType = user.VehicleType
+                // Load thông tin xe từ DriverProfile
+                LicensePlate = driverProfile?.LicensePlate,
+                VehicleType = driverProfile?.VehicleType
             };
 
             return View(model);
@@ -119,10 +120,25 @@ namespace RideHailingApp.Web.Controllers
 
         // --- TÍNH NĂNG 1: VÍ VÀ DOANH THU ---
         [HttpGet]
+        // --- TÍNH NĂNG 1: VÍ VÀ DOANH THU ---
+        [HttpGet]
         public IActionResult Wallet()
         {
-            var driverId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-            var driver = _context.Users.Find(driverId);
+            var driverIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (driverIdClaim == null) return RedirectToAction("Login", "Auth");
+
+            int driverId = int.Parse(driverIdClaim.Value);
+
+            // 1. Phải có Include(u => u.Wallet) để Entity Framework lấy kèm dữ liệu Ví
+            var driver = _context.Users
+                .Include(u => u.Wallet)
+                .FirstOrDefault(u => u.Id == driverId);
+
+            // 2. Nếu DB bị reset mà Cookie vẫn còn (driver = null), tự động đẩy ra trang Đăng xuất
+            if (driver == null)
+            {
+                return RedirectToAction("Logout", "Auth");
+            }
 
             // Lấy cuốc xe hoàn thành trong 7 ngày qua để vẽ biểu đồ
             var sevenDaysAgo = DateTime.Now.Date.AddDays(-6);
@@ -264,8 +280,10 @@ namespace RideHailingApp.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> CompleteRide(int rideId)
         {
-            // Lấy thông tin chuyến xe kèm theo thông tin Tài xế
-            var ride = _context.Rides.Include(r => r.Driver).FirstOrDefault(r => r.Id == rideId);
+            var ride = _context.Rides
+                .Include(r => r.Driver).ThenInclude(d => d.Wallet)
+                .Include(r => r.Driver).ThenInclude(d => d.DriverProfile)
+                .FirstOrDefault(r => r.Id == rideId);
 
             if (ride != null && ride.Status == RideHailingApp.Common.Enums.RideStatusEnum.InProgress)
             {
@@ -273,22 +291,37 @@ namespace RideHailingApp.Web.Controllers
                 ride.Status = RideHailingApp.Common.Enums.RideStatusEnum.Completed;
                 ride.CompletedAt = DateTime.Now;
 
-                // 2. CỘNG TIỀN VÀO VÍ TIỀN MẶT CỦA TÀI XẾ
+                // 2. CỘNG TIỀN CƯỚC VÀO VÍ TÀI XẾ
                 if (ride.Driver != null)
                 {
-                    // Cộng tiền cước của chuyến đi này vào số dư hiện tại
-                    ride.Driver.CashBalance += ride.Fare;
-
-                    // Trả tài xế về trạng thái Sẵn sàng nhận cuốc mới
-                    ride.Driver.IsDriverAvailable = true;
+                    ride.Driver.Wallet.CashBalance += ride.Fare;
+                    ride.Driver.DriverProfile.IsDriverAvailable = true;
                 }
 
+                // Lưu lần 1 để DB ghi nhận chuyến này đã hoàn thành
                 _context.SaveChanges();
 
-                // 3. Bắn SignalR thông báo cho máy Khách hàng
+                // 3. LOGIC NHIỆM VỤ: Kiểm tra số cuốc hoàn thành trong ngày
+                int todayCompletedRides = _context.Rides.Count(r =>
+                    r.DriverId == ride.DriverId &&
+                    r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Completed &&
+                    r.CompletedAt != null && r.CompletedAt.Value.Date == DateTime.Now.Date);
+
+                string successMessage = $"Chúc mừng! Bạn đã nhận được {ride.Fare.ToString("N0")}đ vào ví.";
+
+                // Nếu VỪA ĐÚNG đạt mốc 10 cuốc, cộng thêm 50.000đ tiền thưởng
+                if (todayCompletedRides == 10 && ride.Driver != null)
+                {
+                    ride.Driver.Wallet.CashBalance += 50000m;
+                    _context.SaveChanges(); // Lưu lần 2 cho tiền thưởng
+
+                    successMessage = $"Tuyệt vời! Bạn nhận được {ride.Fare.ToString("N0")}đ cước phí và THƯỞNG 50.000đ (Hoàn thành 10 cuốc)!";
+                }
+
+                // 4. Bắn SignalR thông báo cho máy Khách hàng
                 await _hubContext.Clients.User(ride.CustomerId.ToString()).SendAsync("RideCompleted");
 
-                TempData["Success"] = $"Chúc mừng! Bạn đã nhận được {ride.Fare.ToString("N0")}đ vào ví.";
+                TempData["Success"] = successMessage;
                 return RedirectToAction("Index");
             }
             return BadRequest();
@@ -301,16 +334,16 @@ namespace RideHailingApp.Web.Controllers
             int driverId = int.Parse(driverIdClaim.Value);
             if (_rideService.AcceptRide(rideId, driverId))
             {
-                var ride = _context.Rides.Include(r => r.Driver).First(r => r.Id == rideId);
+                var ride = _context.Rides.Include(r => r.Driver).ThenInclude(d => d.DriverProfile).First(r => r.Id == rideId);
 
                 // BỔ SUNG: Truyền thêm Biển số và Loại xe
                 await _hubContext.Clients.User(ride.CustomerId.ToString()).SendAsync("RideAccepted",
                     ride.Driver.FullName,
                     ride.Driver.PhoneNumber,
-                    ride.Driver.CurrentLat,
-                    ride.Driver.CurrentLng,
-                    ride.Driver.LicensePlate ?? "Đang cập nhật",
-                    ride.Driver.VehicleType ?? "Car");
+                    ride.Driver.DriverProfile?.CurrentLat,
+                    ride.Driver.DriverProfile?.CurrentLng,
+                    ride.Driver.DriverProfile?.LicensePlate ?? "Đang cập nhật",
+                    ride.Driver.DriverProfile?.VehicleType ?? "Car");
 
                 return RedirectToAction("Index");
             }
@@ -325,11 +358,12 @@ namespace RideHailingApp.Web.Controllers
             if (driverIdClaim != null)
             {
                 int driverId = int.Parse(driverIdClaim.Value);
-                var driver = _context.Users.Find(driverId);
-                if (driver != null)
+                var driverProfile = _context.DriverProfiles.FirstOrDefault(d => d.UserId == driverId);
+
+                if (driverProfile != null)
                 {
-                    driver.CurrentLat = model.Lat;
-                    driver.CurrentLng = model.Lng;
+                    driverProfile.CurrentLat = model.Lat;
+                    driverProfile.CurrentLng = model.Lng;
                     _context.SaveChanges();
 
                     // KIỂM TRA TÀI XẾ CÓ ĐANG TRONG CHUYẾN ĐI KHÔNG?
@@ -345,14 +379,14 @@ namespace RideHailingApp.Web.Controllers
                             .SendAsync("UpdateDriverLocation", model.Lat, model.Lng);
                     }
                     // 2. NẾU ĐANG RẢNH -> QUÉT CUỐC MỚI NHƯ CŨ
-                    else if (driver.IsDriverAvailable == true)
+                    else if (driverProfile.IsDriverAvailable == true)
                     {
                         string searchStr = $"[{driverId}]";
 
                         var pendingRides = _context.Rides
                             .Include(r => r.Customer)
                             .Where(r => r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Pending &&
-                                  r.RequestedVehicleType == driver.VehicleType && // TÀI XẾ CHỈ THẤY CUỐC KHỚP XE CỦA MÌNH
+                                  r.RequestedVehicleType == driverProfile.VehicleType && // TÀI XẾ CHỈ THẤY CUỐC KHỚP XE CỦA MÌNH
                                   (string.IsNullOrEmpty(r.DeclinedDriverIds) || !r.DeclinedDriverIds.Contains(searchStr)))
                             .ToList();
 
@@ -441,7 +475,10 @@ namespace RideHailingApp.Web.Controllers
                 int driverId = int.Parse(driverIdClaim.Value);
 
                 // Lấy chuyến xe mà tài xế này đang nhận
-                var ride = _context.Rides.FirstOrDefault(r => r.Id == rideId && r.DriverId == driverId);
+                var ride = _context.Rides
+                    .Include(r => r.Driver).ThenInclude(d => d.Wallet)
+                    .Include(r => r.Driver).ThenInclude(d => d.DriverProfile)
+                    .FirstOrDefault(r => r.Id == rideId && r.DriverId == driverId);
 
                 // Cho phép hủy khi đang ở trạng thái Accepted (Đang đến đón) hoặc InProgress
                 if (ride != null &&
@@ -453,10 +490,9 @@ namespace RideHailingApp.Web.Controllers
                     ride.CancelReason = cancelReason;
 
                     // 2. Trả tài xế về trạng thái Sẵn sàng nhận cuốc mới
-                    var driver = _context.Users.Find(driverId);
-                    if (driver != null)
+                    if (ride.Driver != null && ride.Driver.DriverProfile != null)
                     {
-                        driver.IsDriverAvailable = true;
+                        ride.Driver.DriverProfile.IsDriverAvailable = true;
                     }
 
                     _context.SaveChanges();

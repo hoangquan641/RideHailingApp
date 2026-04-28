@@ -2,9 +2,24 @@
 @{
     ViewData["Title"] = "Trung tâm Quản trị";
 }
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div class="container-fluid mt-3 px-3 pb-5 mb-5">
+
+    @if (ViewBag.RevenueWarning != null)
+    {
+        <div class="alert alert-danger shadow-sm border-0 mb-4 d-flex align-items-center" style="border-radius: 16px;">
+            <div class="bg-danger bg-opacity-25 p-2 rounded-circle me-3">
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+            </div>
+            <div>
+                <h6 class="fw-bold text-danger mb-0">Cảnh báo hệ thống!</h6>
+                <p class="small mb-0">@ViewBag.RevenueWarning</p>
+            </div>
+        </div>
+    }
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="admin-header-title mb-0">Tổng Quan</h3>
@@ -93,9 +108,9 @@
                     <a asp-action="ManageUsers" class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
                         <i class="bi bi-person-lines-fill text-primary me-2"></i> Quản lý tài khoản
                     </a>
-                    <button class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
-                        <i class="bi bi-receipt text-success me-2"></i> Lịch sử hệ thống
-                    </button>
+                    <a asp-action="Reports" class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
+                        <i class="bi bi-receipt text-success me-2"></i> Báo cáo & Xuất Excel
+                    </a>
                     <a asp-action="Profile" class="btn btn-light text-start py-3 px-4 rounded-4 shadow-sm fw-bold">
                         <i class="bi bi-gear-fill text-secondary me-2"></i> Cài đặt hệ thống
                     </a>

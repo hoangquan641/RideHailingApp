@@ -105,8 +105,8 @@ else
                                     <div class="mt-1">
                                         <span class="badge bg-light text-dark border small">
                                             <i class="bi bi-car-front-fill text-success me-1"></i>
-                                            <span id="uiVehicle">@(activeRide.Driver?.VehicleType ?? "Car")</span> •
-                                            <span class="fw-bold" id="uiPlate">@(activeRide.Driver?.LicensePlate ?? "Đang cập nhật")</span>
+                                            <span id="uiVehicle">@(activeRide.Driver?.DriverProfile?.VehicleType ?? "Car")</span> •
+                                            <span class="fw-bold" id="uiPlate">@(activeRide.Driver?.DriverProfile?.LicensePlate ?? "Đang cập nhật")</span>
                                         </span>
                                     </div>
                                 </div>
@@ -251,8 +251,8 @@ else
             return L.icon({ iconUrl: iconUrl, iconSize: [40, 40], iconAnchor: [20, 20] });
             }
 
-            // Lấy loại xe hiện tại khi load trang
-            let currentVehicleType = '@Html.Raw(activeRide.Driver?.VehicleType ?? "Ô tô 4 chỗ (Car)")';
+            // Lấy loại xe hiện tại khi load trang - Đã sửa qua DriverProfile
+            let currentVehicleType = '@Html.Raw(activeRide.Driver?.DriverProfile?.VehicleType ?? "Ô tô 4 chỗ (Car)")';
             let currentDriverIcon = getDriverIcon(currentVehicleType);
             // ================================================================
 
@@ -303,7 +303,8 @@ else
 
             @if (isAccepted && activeRide.Driver != null)
             {
-                <text>drawRoute(@(activeRide.Driver.CurrentLat ?? 0), @(activeRide.Driver.CurrentLng ?? 0), @activeRide.PickupLat, @activeRide.PickupLng, true);</text>
+                // Đã sửa qua DriverProfile
+                <text>drawRoute(@(activeRide.Driver.DriverProfile?.CurrentLat ?? 0), @(activeRide.Driver.DriverProfile?.CurrentLng ?? 0), @activeRide.PickupLat, @activeRide.PickupLng, true);</text>
             }
             else if (isInProgress)
             {

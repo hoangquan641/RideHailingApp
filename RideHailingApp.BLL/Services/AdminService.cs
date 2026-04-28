@@ -3,6 +3,9 @@ using RideHailingApp.Common.DTOs;
 using RideHailingApp.Common.Enums;
 using RideHailingApp.DAL.Data;
 using RideHailingApp.DAL.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RideHailingApp.BLL.Services
 {
@@ -12,6 +15,9 @@ namespace RideHailingApp.BLL.Services
         List<User> GetAllUsers(string roleFilter, string searchString);
         bool ToggleUserBan(int userId);
         bool DeleteUser(int userId);
+
+        // BỔ SUNG: Hàm kiểm tra sụt giảm doanh thu
+        string CheckRevenueAnomaly();
     }
 
     public class AdminService : IAdminService
@@ -99,6 +105,37 @@ namespace RideHailingApp.BLL.Services
                 return true;
             }
             return false;
+        }
+
+        // ==========================================================
+        // BỔ SUNG MỚI: THUẬT TOÁN CẢNH BÁO SỤT GIẢM DOANH THU (> 30%)
+        // ==========================================================
+        public string CheckRevenueAnomaly()
+        {
+            var today = DateTime.Today;
+            var yesterday = today.AddDays(-1);
+            var tomorrow = today.AddDays(1);
+
+            // Tính doanh thu hôm nay
+            var todayRevenue = _context.Rides
+                .Where(r => r.Status == RideStatusEnum.Completed && !r.IsDeleted && r.CompletedAt >= today && r.CompletedAt < tomorrow)
+                .Sum(r => r.Fare);
+
+            // Tính doanh thu hôm qua
+            var yesterdayRevenue = _context.Rides
+                .Where(r => r.Status == RideStatusEnum.Completed && !r.IsDeleted && r.CompletedAt >= yesterday && r.CompletedAt < today)
+                .Sum(r => r.Fare);
+
+            if (yesterdayRevenue > 0)
+            {
+                var percentChange = ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
+
+                if (percentChange <= -30) // Sụt giảm 30% trở lên
+                {
+                    return $"Sụt giảm bất thường: Doanh thu hôm nay ({todayRevenue.ToString("N0")}đ) đã giảm {Math.Abs(Math.Round(percentChange, 1))}% so với hôm qua ({yesterdayRevenue.ToString("N0")}đ). Cần kiểm tra lại hệ thống điều phối!";
+                }
+            }
+            return null;
         }
     }
 }

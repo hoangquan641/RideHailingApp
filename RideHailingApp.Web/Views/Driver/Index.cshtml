@@ -1,20 +1,23 @@
 ﻿@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
 @inject RideHailingApp.DAL.Data.ApplicationDbContext _context
+
 @{
     ViewData["Title"] = "Trạm điều khiển";
     var activeRide = ViewBag.ActiveRide as RideHailingApp.DAL.Entities.Ride;
 
-    // Lấy thông tin loại xe của tài xế đang đăng nhập
     var driverIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-    string vehicleType = "Ô tô 4 chỗ (Car)"; // Mặc định
+    string vehicleType = "Ô tô 4 chỗ (Car)";
 
     if (driverIdClaim != null)
     {
         int driverId = int.Parse(driverIdClaim.Value);
-        var currentDriver = _context.Users.Find(driverId);
-        if (currentDriver != null && !string.IsNullOrEmpty(currentDriver.VehicleType))
+        // SỬA Ở ĐÂY: Include DriverProfile
+        var currentDriver = _context.Users.Include(u => u.DriverProfile).FirstOrDefault(u => u.Id == driverId);
+
+        if (currentDriver?.DriverProfile != null && !string.IsNullOrEmpty(currentDriver.DriverProfile.VehicleType))
         {
-            vehicleType = currentDriver.VehicleType;
+            vehicleType = currentDriver.DriverProfile.VehicleType;
         }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RideHailingApp.DAL.Data;
 
@@ -11,9 +12,11 @@ using RideHailingApp.DAL.Data;
 namespace RideHailingApp.DAL.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260428082116_reconstructDB")]
+    partial class reconstructDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,33 +24,6 @@ namespace RideHailingApp.DAL.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("RideHailingApp.DAL.Entities.DriverProfile", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("CurrentLat")
-                        .HasColumnType("decimal(18,6)");
-
-                    b.Property<decimal?>("CurrentLng")
-                        .HasColumnType("decimal(18,6)");
-
-                    b.Property<bool>("IsDriverAvailable")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LicensePlate")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("VehicleType")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("DriverProfiles");
-                });
 
             modelBuilder.Entity("RideHailingApp.DAL.Entities.Ride", b =>
                 {
@@ -135,6 +111,18 @@ namespace RideHailingApp.DAL.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal>("CashBalance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CreditBalance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CurrentLat")
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("CurrentLng")
+                        .HasColumnType("decimal(18,6)");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -151,6 +139,12 @@ namespace RideHailingApp.DAL.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool?>("IsDriverAvailable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LicensePlate")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -163,36 +157,12 @@ namespace RideHailingApp.DAL.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
+                    b.Property<string>("VehicleType")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("RideHailingApp.DAL.Entities.UserWallet", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("CashBalance")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("CreditBalance")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("UserWallets");
-                });
-
-            modelBuilder.Entity("RideHailingApp.DAL.Entities.DriverProfile", b =>
-                {
-                    b.HasOne("RideHailingApp.DAL.Entities.User", "User")
-                        .WithOne("DriverProfile")
-                        .HasForeignKey("RideHailingApp.DAL.Entities.DriverProfile", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("RideHailingApp.DAL.Entities.Ride", b =>
@@ -213,26 +183,11 @@ namespace RideHailingApp.DAL.Migrations
                     b.Navigation("Driver");
                 });
 
-            modelBuilder.Entity("RideHailingApp.DAL.Entities.UserWallet", b =>
-                {
-                    b.HasOne("RideHailingApp.DAL.Entities.User", "User")
-                        .WithOne("Wallet")
-                        .HasForeignKey("RideHailingApp.DAL.Entities.UserWallet", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("RideHailingApp.DAL.Entities.User", b =>
                 {
                     b.Navigation("CustomerRides");
 
-                    b.Navigation("DriverProfile");
-
                     b.Navigation("DriverRides");
-
-                    b.Navigation("Wallet");
                 });
 #pragma warning restore 612, 618
         }

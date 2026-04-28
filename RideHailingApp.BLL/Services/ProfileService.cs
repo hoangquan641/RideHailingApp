@@ -1,5 +1,7 @@
-﻿using RideHailingApp.Common.Helpers;
+﻿using Microsoft.EntityFrameworkCore;
+using RideHailingApp.Common.Helpers;
 using RideHailingApp.DAL.Data;
+using RideHailingApp.DAL.Entities;
 
 namespace RideHailingApp.BLL.Services
 {
@@ -42,25 +44,27 @@ namespace RideHailingApp.BLL.Services
 
         public bool UpdateProfile(int userId, RideHailingApp.Common.DTOs.UpdateProfileDTO model)
         {
-            var user = _context.Users.Find(userId);
+            // BỔ SUNG .Include(u => u.DriverProfile)
+            var user = _context.Users.Include(u => u.DriverProfile).FirstOrDefault(u => u.Id == userId);
             if (user == null) return false;
 
             user.FullName = model.FullName;
             user.Email = model.Email;
 
-            if (!string.IsNullOrEmpty(model.AvatarUrl))
-            {
-                user.AvatarUrl = model.AvatarUrl;
-            }
+            if (!string.IsNullOrEmpty(model.AvatarUrl)) user.AvatarUrl = model.AvatarUrl;
 
-            // BỔ SUNG: Cập nhật thông tin xe nếu có (An toàn với Customer vì dữ liệu sẽ là null)
-            if (!string.IsNullOrEmpty(model.LicensePlate))
+            // Xử lý riêng cho Tài xế
+            if (user.Role == RideHailingApp.Common.Enums.RoleEnum.Driver)
             {
-                user.LicensePlate = model.LicensePlate;
-            }
-            if (!string.IsNullOrEmpty(model.VehicleType))
-            {
-                user.VehicleType = model.VehicleType;
+                // Phòng hờ tài xế cũ chưa có profile
+                if (user.DriverProfile == null)
+                {
+                    user.DriverProfile = new DriverProfile { UserId = userId };
+                    _context.DriverProfiles.Add(user.DriverProfile);
+                }
+
+                if (!string.IsNullOrEmpty(model.LicensePlate)) user.DriverProfile.LicensePlate = model.LicensePlate;
+                if (!string.IsNullOrEmpty(model.VehicleType)) user.DriverProfile.VehicleType = model.VehicleType;
             }
 
             _context.SaveChanges();

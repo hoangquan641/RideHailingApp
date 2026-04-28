@@ -36,6 +36,7 @@ namespace RideHailingApp.Web.Controllers
                 int customerId = int.Parse(userIdClaim.Value);
                 var activeRide = _context.Rides
                     .Include(r => r.Driver)
+                        .ThenInclude(d => d.DriverProfile) // BỔ SUNG DÒNG NÀY
                     .Where(r => r.CustomerId == customerId && r.Status != RideHailingApp.Common.Enums.RideStatusEnum.Completed && r.Status != RideHailingApp.Common.Enums.RideStatusEnum.Cancelled)
                     .OrderByDescending(r => r.CreatedAt)
                     .FirstOrDefault();
@@ -111,7 +112,6 @@ namespace RideHailingApp.Web.Controllers
             return View(model);
         }
 
-        [HttpGet]
         [HttpGet]
         public IActionResult Notifications()
         {
@@ -197,7 +197,7 @@ namespace RideHailingApp.Web.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, Microsoft.AspNetCore.Http.IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
+        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, Microsoft.AspNetCore.Http.IFormFile? avatarFile)
         {
             if (ModelState.IsValid)
             {
@@ -286,13 +286,12 @@ namespace RideHailingApp.Web.Controllers
                     // 2. Nếu đã có tài xế nhận, giải phóng tài xế và gửi thông báo
                     if (ride.DriverId.HasValue)
                     {
-                        var driver = _context.Users.Find(ride.DriverId.Value);
-                        if (driver != null)
+                        var driverProfile = _context.DriverProfiles.FirstOrDefault(dp => dp.UserId == ride.DriverId.Value);
+                        if (driverProfile != null)
                         {
-                            driver.IsDriverAvailable = true; // Trả tài xế về trạng thái Sẵn sàng
+                            driverProfile.IsDriverAvailable = true;
                         }
 
-                        // Bắn SignalR báo cho máy tài xế
                         await _hubContext.Clients.User(ride.DriverId.Value.ToString())
                             .SendAsync("RideCancelledByCustomer");
                     }

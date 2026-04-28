@@ -1,7 +1,11 @@
-﻿using RideHailingApp.BLL.Algorithms;
+﻿using Microsoft.EntityFrameworkCore;
+using RideHailingApp.BLL.Algorithms;
 using RideHailingApp.Common.DTOs;
 using RideHailingApp.DAL.Data;
 using RideHailingApp.DAL.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace RideHailingApp.BLL.Services
 {
@@ -89,15 +93,17 @@ namespace RideHailingApp.BLL.Services
             return false; // Cuốc xe có thể đã bị tài xế khác nhận mất hoặc khách hủy
         }
 
-        // Bổ sung: tìm tài xế gần nhất
+        // Bổ sung: tìm tài xế gần nhất qua DriverProfile
         public int? FindNearestAvailableDriver(decimal pickupLat, decimal pickupLng, List<int> excludedDriverIds, string requestedVehicleType)
         {
             var availableDrivers = _context.Users
+                .Include(u => u.DriverProfile) // PHẢI INCLUDE BẢNG MỚI
                 .Where(u => u.Role == Common.Enums.RoleEnum.Driver
-                         && u.IsDriverAvailable == true
-                         && u.CurrentLat.HasValue
-                         && u.CurrentLng.HasValue
-                         && u.VehicleType == requestedVehicleType // CHỈ QUÉT TÀI XẾ KHỚP LOẠI XE
+                         && u.DriverProfile != null
+                         && u.DriverProfile.IsDriverAvailable == true
+                         && u.DriverProfile.CurrentLat.HasValue
+                         && u.DriverProfile.CurrentLng.HasValue
+                         && u.DriverProfile.VehicleType == requestedVehicleType
                          && !excludedDriverIds.Contains(u.Id)
                          && !u.IsDeleted)
                 .ToList();
@@ -107,8 +113,9 @@ namespace RideHailingApp.BLL.Services
 
             foreach (var driver in availableDrivers)
             {
+                // Đổi thành u.DriverProfile.CurrentLat
                 decimal distance = Algorithms.GeoCalculator.CalculateDistance(
-                    pickupLat, pickupLng, driver.CurrentLat.Value, driver.CurrentLng.Value);
+                    pickupLat, pickupLng, driver.DriverProfile.CurrentLat.Value, driver.DriverProfile.CurrentLng.Value);
 
                 if (distance < minDistance)
                 {
@@ -116,7 +123,6 @@ namespace RideHailingApp.BLL.Services
                     nearestDriverId = driver.Id;
                 }
             }
-
             return nearestDriverId;
         }
 
@@ -136,10 +142,10 @@ namespace RideHailingApp.BLL.Services
         // ==============================================================================
         public void SetDriverAvailability(int driverId, bool isAvailable)
         {
-            var driver = _context.Users.Find(driverId);
-            if (driver != null)
+            var driverProfile = _context.DriverProfiles.FirstOrDefault(dp => dp.UserId == driverId);
+            if (driverProfile != null)
             {
-                driver.IsDriverAvailable = isAvailable;
+                driverProfile.IsDriverAvailable = isAvailable;
                 _context.SaveChanges();
             }
         }
