@@ -27,6 +27,7 @@ namespace RideHailingApp.DAL.Entities
         public decimal DropoffLat { get; set; }
         public decimal DropoffLng { get; set; }
 
+        public string? RequestedVehicleType { get; set; }
         public decimal DistanceKm { get; set; }
         public decimal Fare { get; set; }
 

@@ -147,7 +147,7 @@ namespace RideHailingApp.Web.Controllers
                 }
 
                 var ride = _rideService.BookRide(model);
-                var nearestDriverId = _rideService.FindNearestAvailableDriver(model.PickupLat, model.PickupLng, new List<int>());
+                var nearestDriverId = _rideService.FindNearestAvailableDriver(model.PickupLat, model.PickupLng, new List<int>(), model.VehicleType);
 
                 if (nearestDriverId != null)
                 {

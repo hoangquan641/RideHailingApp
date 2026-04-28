@@ -1,6 +1,22 @@
-﻿@{
+﻿@using System.Security.Claims
+@inject RideHailingApp.DAL.Data.ApplicationDbContext _context
+@{
     ViewData["Title"] = "Trạm điều khiển";
     var activeRide = ViewBag.ActiveRide as RideHailingApp.DAL.Entities.Ride;
+
+    // Lấy thông tin loại xe của tài xế đang đăng nhập
+    var driverIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+    string vehicleType = "Ô tô 4 chỗ (Car)"; // Mặc định
+
+    if (driverIdClaim != null)
+    {
+        int driverId = int.Parse(driverIdClaim.Value);
+        var currentDriver = _context.Users.Find(driverId);
+        if (currentDriver != null && !string.IsNullOrEmpty(currentDriver.VehicleType))
+        {
+            vehicleType = currentDriver.VehicleType;
+        }
+    }
 }
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -243,10 +259,23 @@
         const targetLat = parseFloat('@(activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ? activeRide.PickupLat : (activeRide?.DropoffLat ?? 0))');
         const targetLng = parseFloat('@(activeRide?.Status == RideHailingApp.Common.Enums.RideStatusEnum.Accepted ? activeRide.PickupLng : (activeRide?.DropoffLng ?? 0))');
 
-        var carIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204066.png',
-        iconSize: [40, 40], iconAnchor: [20, 20]
-        });
+        // ================================================================
+        // BỔ SUNG: HÀM TẠO ICON THEO LOẠI XE CỦA TÀI XẾ
+        // ================================================================
+        function getDriverIcon(vType) {
+        let iconUrl = 'https://cdn-icons-png.flaticon.com/512/1048/1048314.png'; // Mặc định: Ô tô 4 chỗ (Car)
+
+        if (vType === 'Xe máy (Bike)') {
+        iconUrl = 'https://cdn-icons-png.flaticon.com/512/1048/1048334.png'; // Icon Xe máy
+        }
+
+        return L.icon({ iconUrl: iconUrl, iconSize: [40, 40], iconAnchor: [20, 20] });
+        }
+
+        // Lấy loại xe từ Razor (C#) truyền xuống JS
+        let currentVehicleType = '@Html.Raw(vehicleType)';
+        var carIcon = getDriverIcon(currentVehicleType);
+        // ================================================================
 
         // 2. CÁC HÀM TIỆN ÍCH (GIAO DIỆN & TRACKING)
         let isPanelMinimized = false;

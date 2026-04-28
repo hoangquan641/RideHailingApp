@@ -105,7 +105,7 @@ else
                                     <div class="mt-1">
                                         <span class="badge bg-light text-dark border small">
                                             <i class="bi bi-car-front-fill text-success me-1"></i>
-                                            <span id="uiVehicle">@(activeRide.Driver?.VehicleType ?? "GrabCar")</span> •
+                                            <span id="uiVehicle">@(activeRide.Driver?.VehicleType ?? "Car")</span> •
                                             <span class="fw-bold" id="uiPlate">@(activeRide.Driver?.LicensePlate ?? "Đang cập nhật")</span>
                                         </span>
                                     </div>
@@ -235,25 +235,43 @@ else
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
             let customerIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', iconSize: [25, 41], iconAnchor: [12, 41] });
-            let driverIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204066.png', iconSize: [40, 40], iconAnchor: [20, 20] });
             let destinationIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], iconAnchor: [12, 41] });
+
+            // ================================================================
+            // CẬP NHẬT: HÀM TẠO ICON THEO 2 LOẠI XE MỚI
+            // ================================================================
+            function getDriverIcon(vType) {
+            // Mặc định là Ô tô 4 chỗ (Car)
+            let iconUrl = 'https://cdn-icons-png.flaticon.com/512/1048/1048314.png';
+
+            if (vType === 'Xe máy (Bike)') {
+            iconUrl = 'https://cdn-icons-png.flaticon.com/512/1048/1048334.png';
+            }
+
+            return L.icon({ iconUrl: iconUrl, iconSize: [40, 40], iconAnchor: [20, 20] });
+            }
+
+            // Lấy loại xe hiện tại khi load trang
+            let currentVehicleType = '@Html.Raw(activeRide.Driver?.VehicleType ?? "Ô tô 4 chỗ (Car)")';
+            let currentDriverIcon = getDriverIcon(currentVehicleType);
+            // ================================================================
 
             let pickupMarker = L.marker([@activeRide.PickupLat, @activeRide.PickupLng], { icon: customerIcon }).addTo(map).bindPopup("Điểm đón");
             let dropoffMarker = L.marker([@activeRide.DropoffLat, @activeRide.DropoffLng], { icon: destinationIcon }).addTo(map).bindPopup("Điểm đến");
             let driverMarker = null;
             let routingControl = null;
 
-            // HÀM VẼ LỘ TRÌNH ĐA NĂNG (Cập nhật hiển thị ETA)
+            // HÀM VẼ LỘ TRÌNH ĐA NĂNG
             function drawRoute(startLat, startLng, endLat, endLng, isDriverToPickup) {
             if(routingControl) map.removeControl(routingControl);
 
             if (isDriverToPickup) {
             if(driverMarker) map.removeLayer(driverMarker);
-            driverMarker = L.marker([startLat, startLng], { icon: driverIcon }).addTo(map).bindPopup("Tài xế đang đến").openPopup();
+            driverMarker = L.marker([startLat, startLng], { icon: currentDriverIcon }).addTo(map).bindPopup("Tài xế đang đến").openPopup();
             } else {
             if(driverMarker) map.removeLayer(driverMarker);
             if(pickupMarker) map.removeLayer(pickupMarker);
-            pickupMarker = L.marker([startLat, startLng], { icon: driverIcon }).addTo(map).bindPopup("Đang chở khách").openPopup();
+            pickupMarker = L.marker([startLat, startLng], { icon: currentDriverIcon }).addTo(map).bindPopup("Đang chở khách").openPopup();
             dropoffMarker = L.marker([endLat, endLng], { icon: destinationIcon }).addTo(map).bindPopup("Điểm đến");
             }
 
@@ -262,6 +280,7 @@ else
             routeWhileDragging: false,
             addWaypoints: false,
             show: false,
+            createMarker: function() { return null; }, // Chặn đè marker mặc định
             lineOptions: { styles: [{ color: isDriverToPickup ? '#00b14f' : '#dc3545', weight: 6, opacity: 0.8 }] }
             }).addTo(map);
 
@@ -269,8 +288,6 @@ else
             routingControl.on('routesfound', function(e) {
             let route = e.routes[0];
             let distanceKm = (route.summary.totalDistance / 1000).toFixed(1);
-
-            // Lấy thời gian dự kiến từ Leaflet (giây) chuyển sang phút
             let etaMinutes = Math.ceil(route.summary.totalTime / 60);
 
             const distText = document.getElementById('distanceText');
@@ -327,20 +344,21 @@ else
             }
             });
 
-            // NÂNG CẤP: Không dùng reload nữa để tránh chớp trang!
+            // LẮNG NGHE TÀI XẾ NHẬN CUỐC (Cập nhật Realtime loại xe mới)
             connection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng, licensePlate, vehicleType) {
-            // 1. Cập nhật các text trên UI
             document.getElementById('uiDriverName').innerText = driverName;
             document.getElementById('uiDriverPhone').innerHTML = `<i class="bi bi-telephone-fill"></i> ${driverPhone}`;
             document.getElementById('uiPlate').innerText = licensePlate;
             document.getElementById('uiVehicle').innerText = vehicleType;
             document.getElementById('uiDriverPhoneBtn').href = `tel:${driverPhone}`;
 
-            // 2. Chuyển đổi màn hình từ "Đang tìm" sang "Tài xế đang đến"
             document.getElementById('stateSearching').style.display = 'none';
             document.getElementById('stateDriverInfo').style.display = 'block';
 
-            // 3. Vẽ ngay lập tức đường đi từ Tài xế tới Điểm đón
+            // Cập nhật lại biến currentDriverIcon theo phương tiện tài xế truyền qua
+            currentVehicleType = vehicleType;
+            currentDriverIcon = getDriverIcon(vehicleType);
+
             drawRoute(driverLat, driverLng, @activeRide.PickupLat, @activeRide.PickupLng, true);
             });
 
@@ -357,13 +375,8 @@ else
             Swal.fire({ toast: true, position: 'top', icon: 'success', title: 'Chuyến đi kết thúc!', showConfirmButton: false, timer: 3000 });
             });
 
-            // ================================================================
-            // BỔ SUNG: LẮNG NGHE SỰ KIỆN TÀI XẾ HỦY CHUYẾN (KHÁCH KHÔNG ĐẾN)
-            // ================================================================
             connection.on("RideCancelledByDriver", function (reason) {
-            // Tắt bộ đếm cảnh báo mất tín hiệu (nếu có)
             clearTimeout(signalTimeout);
-
             Swal.fire({
             icon: 'error',
             title: 'Chuyến xe đã bị hủy!',
@@ -373,12 +386,10 @@ else
             allowOutsideClick: false
             }).then((result) => {
             if (result.isConfirmed) {
-            // Trả khách hàng về màn hình Đặt xe ban đầu
             window.location.href = '/Customer/BookRide';
             }
             });
             });
-            // ================================================================
 
             connection.start().catch(err => console.error(err));
         </script>

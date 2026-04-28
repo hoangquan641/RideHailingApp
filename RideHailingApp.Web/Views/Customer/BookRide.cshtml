@@ -37,7 +37,7 @@
         </div>
     </div>
 
-    <div class="floating-bottom-sheet" id="bookingSheet">
+    <div class="floating-bottom-sheet" id="bookingSheet" style="display: none;">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div>
                 <span class="text-muted d-block" style="font-size: 0.85rem;">Tổng khoảng cách</span>
@@ -49,12 +49,29 @@
             </div>
         </div>
 
+        <div class="mb-3">
+            <span class="text-muted d-block mb-2 fw-bold" style="font-size: 0.85rem;">CHỌN PHƯƠNG TIỆN DI CHUYỂN</span>
+            <div class="d-flex gap-2">
+                <input type="radio" class="btn-check" asp-for="VehicleType" id="bikeType" value="Xe máy (Bike)" checked onchange="updateFareRealtime()">
+                <label class="btn btn-outline-success w-100 py-2 shadow-sm" for="bikeType">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1048/1048334.png" width="35" class="mb-1 d-block mx-auto" />
+                    <span class="fw-bold small">Xe máy</span>
+                </label>
+
+                <input type="radio" class="btn-check" asp-for="VehicleType" id="carType" value="Ô tô 4 chỗ (Car)" onchange="updateFareRealtime()">
+                <label class="btn btn-outline-primary w-100 py-2 shadow-sm" for="carType">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1048/1048314.png" width="35" class="mb-1 d-block mx-auto" />
+                    <span class="fw-bold small">Ô tô 4 chỗ</span>
+                </label>
+            </div>
+        </div>
+
         <input type="hidden" asp-for="PickupLat" id="pickupLat" />
         <input type="hidden" asp-for="PickupLng" id="pickupLng" />
         <input type="hidden" asp-for="DropoffLat" id="dropoffLat" />
         <input type="hidden" asp-for="DropoffLng" id="dropoffLng" />
 
-        <button type="submit" class="btn btn-liquid w-100 fs-5" id="submitBtn">XÁC NHẬN ĐẶT XE</button>
+        <button type="submit" class="btn btn-liquid w-100 fs-5 rounded-pill shadow-sm mt-2" id="submitBtn">XÁC NHẬN ĐẶT XE</button>
     </div>
 </form>
 
@@ -160,28 +177,40 @@
         else if (dropoffMarker == null) setDropoff(lat, lng, true);
         });
 
-        // =======================================================
-        // HÀM ĐÃ ĐƯỢC CẬP NHẬT THEO YÊU CẦU
-        // =======================================================
+        let currentDistanceKm = 0; // Biến toàn cục lưu khoảng cách
+
+        // HÀM MỚI: Tính lại tiền ngay khi đổi loại xe
+        function updateFareRealtime() {
+        if (currentDistanceKm === 0) return;
+
+        let vType = document.querySelector('input[name="VehicleType"]:checked').value;
+        let fare = 0;
+
+        if (vType === 'Xe máy (Bike)') {
+        fare = 15000;
+        if (currentDistanceKm > 2) fare += (currentDistanceKm - 2) * 5000;
+        } else {
+        fare = 20000;
+        if (currentDistanceKm > 2) fare += (currentDistanceKm - 2) * 10000;
+        }
+
+        document.getElementById('fareDisplay').innerText = Math.round(fare).toLocaleString('vi-VN');
+        }
+
         function checkAndDrawRoute() {
         if (pickupMarker != null && dropoffMarker != null) {
         if(routeLine) map.removeLayer(routeLine);
         routeLine = L.polyline([pickupMarker.getLatLng(), dropoffMarker.getLatLng()], {color: '#00b14f', weight: 5}).addTo(map);
-
-        // Ép bản đồ lệch xuống dưới một chút để tuyến đường không bị Bottom Sheet che mất
         map.fitBounds(routeLine.getBounds(), { paddingBottomRight: [0, 200], paddingTopLeft: [0, 100] });
 
-        // Tính khoảng cách và ép kiểu về số thực (float)
         let dist = parseFloat(calculateDistanceClient(pickupMarker.getLatLng().lat, pickupMarker.getLatLng().lng, dropoffMarker.getLatLng().lat, dropoffMarker.getLatLng().lng));
         document.getElementById('distDisplay').innerText = dist.toFixed(1);
 
-        let fare = 20000;
-        if (dist > 2) fare += (dist - 2) * 10000;
-        document.getElementById('fareDisplay').innerText = Math.round(fare).toLocaleString('vi-VN');
+        // Gán khoảng cách vào biến toàn cục và gọi hàm tính tiền
+        currentDistanceKm = dist;
+        updateFareRealtime();
 
-        // KIỂM TRA RÀNG BUỘC KHOẢNG CÁCH (1km - 50km)
         let submitBtn = document.getElementById('submitBtn');
-
         if (dist < 1.0) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = "QUÃNG ĐƯỜNG QUÁ NGẮN (< 1KM)";
@@ -195,13 +224,11 @@
         Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'Khoảng cách tối đa là 50 km', showConfirmButton: false, timer: 3500 });
         }
         else {
-        // Hợp lệ -> Mở khóa nút bấm
         submitBtn.disabled = false;
         submitBtn.innerHTML = "XÁC NHẬN ĐẶT XE";
         submitBtn.classList.replace('btn-secondary', 'btn-liquid');
         }
 
-        // BẬT BOTTOM SHEET LÊN
         document.getElementById('bookingSheet').style.display = 'block';
         }
         }

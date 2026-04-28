@@ -7101,7 +7101,7 @@ jQuery.extend( {
 		}
 
 		// Attribute hooks are determined by the lowercase version
-		// Grab necessary hook if one is defined
+		//  necessary hook if one is defined
 		if ( nType !== 1 || !jQuery.isXMLDoc( elem ) ) {
 			hooks = jQuery.attrHooks[ name.toLowerCase() ] ||
 				( jQuery.expr.match.bool.test( name ) ? boolHook : undefined );

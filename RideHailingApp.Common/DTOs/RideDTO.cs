@@ -15,5 +15,8 @@ namespace RideHailingApp.Common.DTOs
         public string DropoffAddress { get; set; }
         public decimal DropoffLat { get; set; }
         public decimal DropoffLng { get; set; }
+
+        [Required(ErrorMessage = "Vui lòng chọn loại xe")]
+        public string VehicleType { get; set; }
     }
 }

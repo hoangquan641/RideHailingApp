@@ -7,16 +7,14 @@ namespace RideHailingApp.BLL.Services
 {
     public interface IRideService
     {
-        decimal CalculateFare(decimal distanceKm);
+        decimal CalculateFare(decimal distanceKm, string vehicleType); // Thêm vehicleType
         List<Ride> GetPendingRides(int currentDriverId);
         bool AcceptRide(int rideId, int driverId);
         Ride BookRide(BookRideDTO model);
 
-        // Tìm kiếm và từ chối
-        int? FindNearestAvailableDriver(decimal pickupLat, decimal pickupLng, List<int> excludedDriverIds);
-        void MarkRideAsDeclined(int rideId, int driverId);
+        int? FindNearestAvailableDriver(decimal pickupLat, decimal pickupLng, List<int> excludedDriverIds, string requestedVehicleType);
 
-        // --- BỔ SUNG MỚI: XỬ LÝ TRẠNG THÁI NGẮT KẾT NỐI ---
+        void MarkRideAsDeclined(int rideId, int driverId);
         void SetDriverAvailability(int driverId, bool isAvailable);
         void CancelPendingRidesForCustomer(int customerId);
     }
@@ -30,32 +28,24 @@ namespace RideHailingApp.BLL.Services
             _context = context;
         }
 
-        // Quy tắc: 2km đầu 20k, sau đó 10k/km
-        public decimal CalculateFare(decimal distanceKm)
+        public decimal CalculateFare(decimal distanceKm, string vehicleType)
         {
-            if (distanceKm <= 2m)
-            {
-                return 20000m;
-            }
+            decimal baseFare = vehicleType == "Xe máy (Bike)" ? 15000m : 20000m;
+            decimal perKmFare = vehicleType == "Xe máy (Bike)" ? 5000m : 10000m;
 
-            decimal extraDistance = distanceKm - 2m;
-            return 20000m + (extraDistance * 10000m);
+            if (distanceKm <= 2m) return baseFare;
+            return baseFare + ((distanceKm - 2m) * perKmFare);
         }
 
         public Ride BookRide(BookRideDTO model)
         {
-            // 1. Tính khoảng cách
-            decimal distance = GeoCalculator.CalculateDistance(
-                model.PickupLat, model.PickupLng,
-                model.DropoffLat, model.DropoffLng);
+            decimal distance = GeoCalculator.CalculateDistance(model.PickupLat, model.PickupLng, model.DropoffLat, model.DropoffLng);
+            decimal fare = CalculateFare(distance, model.VehicleType); // Truyền loại xe vào
 
-            // 2. Tính tiền
-            decimal fare = CalculateFare(distance);
-
-            // 3. Tạo Entity lưu xuống Database
             var ride = new Ride
             {
                 CustomerId = model.CustomerId,
+                RequestedVehicleType = model.VehicleType, // Lưu vào DB
                 PickupAddress = model.PickupAddress,
                 PickupLat = model.PickupLat,
                 PickupLng = model.PickupLng,
@@ -70,8 +60,7 @@ namespace RideHailingApp.BLL.Services
 
             _context.Rides.Add(ride);
             _context.SaveChanges();
-
-            return ride; // Trả về thông tin chuyến đi để hiển thị cho khách
+            return ride;
         }
 
         public List<Ride> GetPendingRides(int currentDriverId)
@@ -101,14 +90,15 @@ namespace RideHailingApp.BLL.Services
         }
 
         // Bổ sung: tìm tài xế gần nhất
-        public int? FindNearestAvailableDriver(decimal pickupLat, decimal pickupLng, List<int> excludedDriverIds)
+        public int? FindNearestAvailableDriver(decimal pickupLat, decimal pickupLng, List<int> excludedDriverIds, string requestedVehicleType)
         {
             var availableDrivers = _context.Users
                 .Where(u => u.Role == Common.Enums.RoleEnum.Driver
                          && u.IsDriverAvailable == true
                          && u.CurrentLat.HasValue
                          && u.CurrentLng.HasValue
-                         && !excludedDriverIds.Contains(u.Id) // Loại trừ những người đã từ chối
+                         && u.VehicleType == requestedVehicleType // CHỈ QUÉT TÀI XẾ KHỚP LOẠI XE
+                         && !excludedDriverIds.Contains(u.Id)
                          && !u.IsDeleted)
                 .ToList();
 
@@ -118,8 +108,7 @@ namespace RideHailingApp.BLL.Services
             foreach (var driver in availableDrivers)
             {
                 decimal distance = Algorithms.GeoCalculator.CalculateDistance(
-                    pickupLat, pickupLng,
-                    driver.CurrentLat.Value, driver.CurrentLng.Value);
+                    pickupLat, pickupLng, driver.CurrentLat.Value, driver.CurrentLng.Value);
 
                 if (distance < minDistance)
                 {

@@ -120,7 +120,7 @@ namespace RideHailingApp.Web.Controllers
 
         //-------------------------- POST ACTIONS -------------------//
         [HttpPost]
-        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
+        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, Microsoft.AspNetCore.Http.IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
         {
             if (ModelState.IsValid)
             {
@@ -132,13 +132,13 @@ namespace RideHailingApp.Web.Controllers
                     // XỬ LÝ LƯU FILE ẢNH (Dùng avatarFile thay vì model.AvatarFile)
                     if (avatarFile != null)
                     {
-                        string folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
-                        if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                        string folder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
+                        if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
 
-                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
-                        string filePath = Path.Combine(folder, fileName);
+                        string fileName = Guid.NewGuid().ToString() + System.IO.Path.GetExtension(avatarFile.FileName);
+                        string filePath = System.IO.Path.Combine(folder, fileName);
 
-                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
                         {
                             await avatarFile.CopyToAsync(stream);
                         }
@@ -234,7 +234,7 @@ namespace RideHailingApp.Web.Controllers
                     ride.Driver.CurrentLat,
                     ride.Driver.CurrentLng,
                     ride.Driver.LicensePlate ?? "Đang cập nhật",
-                    ride.Driver.VehicleType ?? "GrabCar");
+                    ride.Driver.VehicleType ?? "Car");
 
                 return RedirectToAction("Index");
             }
@@ -276,6 +276,7 @@ namespace RideHailingApp.Web.Controllers
                         var pendingRides = _context.Rides
                             .Include(r => r.Customer)
                             .Where(r => r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Pending &&
+                                  r.RequestedVehicleType == driver.VehicleType && // TÀI XẾ CHỈ THẤY CUỐC KHỚP XE CỦA MÌNH
                                   (string.IsNullOrEmpty(r.DeclinedDriverIds) || !r.DeclinedDriverIds.Contains(searchStr)))
                             .ToList();
 
@@ -327,12 +328,12 @@ namespace RideHailingApp.Web.Controllers
 
             decimal pLat = decimal.Parse(pickupLat);
             decimal pLng = decimal.Parse(pickupLng);
-            var nextDriverId = _rideService.FindNearestAvailableDriver(pLat, pLng, excludedIds);
+
+            var ride = _context.Rides.Include(r => r.Customer).FirstOrDefault(r => r.Id == rideId);
+            var nextDriverId = _rideService.FindNearestAvailableDriver(pLat, pLng, excludedIds, ride?.RequestedVehicleType);
 
             if (nextDriverId != null)
             {
-                var ride = _context.Rides.Include(r => r.Customer).FirstOrDefault(r => r.Id == rideId);
-
                 if (ride != null)
                 {
                     await _hubContext.Clients.User(nextDriverId.Value.ToString()).SendAsync(

@@ -104,7 +104,7 @@ $.validator.addMethod( "accept", function( value, element, param ) {
 			for ( i = 0; i < element.files.length; i++ ) {
 				file = element.files[ i ];
 
-				// Grab the mimetype from the loaded file, verify it matches
+				//  the mimetype from the loaded file, verify it matches
 				if ( !file.type.match( regex ) ) {
 					return false;
 				}
