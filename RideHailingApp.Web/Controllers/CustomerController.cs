@@ -112,6 +112,29 @@ namespace RideHailingApp.Web.Controllers
         }
 
         [HttpGet]
+        [HttpGet]
+        public IActionResult Notifications()
+        {
+            ViewBag.UserName = User.Identity.Name;
+            ViewBag.RoleName = "Khách hàng thành viên";
+
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return RedirectToAction("Login", "Auth");
+
+            int customerId = int.Parse(userIdClaim.Value);
+
+            // Lấy 10 chuyến đi gần nhất để tự động tạo thông báo trạng thái hành trình
+            var recentRides = _context.Rides
+                .Include(r => r.Driver) // Lấy kèm thông tin tài xế
+                .Where(r => r.CustomerId == customerId)
+                .OrderByDescending(r => r.CreatedAt)
+                .Take(10)
+                .ToList();
+
+            return View(recentRides); // Truyền dữ liệu ra View
+        }
+
+        [HttpGet]
         public IActionResult ChangePassword()
         {
             return View();
@@ -174,7 +197,7 @@ namespace RideHailingApp.Web.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
+        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, Microsoft.AspNetCore.Http.IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
         {
             if (ModelState.IsValid)
             {
@@ -186,13 +209,13 @@ namespace RideHailingApp.Web.Controllers
                     // XỬ LÝ LƯU FILE ẢNH (Dùng avatarFile thay vì model.AvatarFile)
                     if (avatarFile != null)
                     {
-                        string folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
-                        if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                        string folder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
+                        if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
 
-                        string fileName = Guid.NewGuid().ToString() + Path.GetExtension(avatarFile.FileName);
-                        string filePath = Path.Combine(folder, fileName);
+                        string fileName = Guid.NewGuid().ToString() + System.IO.Path.GetExtension(avatarFile.FileName);
+                        string filePath = System.IO.Path.Combine(folder, fileName);
 
-                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
                         {
                             await avatarFile.CopyToAsync(stream);
                         }

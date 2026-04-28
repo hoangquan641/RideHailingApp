@@ -178,7 +178,7 @@
                     <a asp-controller="Customer" asp-action="BookRide" class="icon nav-btn center-btn bg-success text-white" title="Đặt xe">
                         <i class="bi bi-car-front-fill"></i>
                     </a>
-                    <a href="#" class="icon nav-btn" title="Thông báo">
+                    <a asp-controller="Customer" asp-action="Notifications" class="icon nav-btn" title="Thông báo">
                         <i class="bi bi-bell-fill"></i>
                     </a>
                     <a asp-controller="Customer" asp-action="Profile" class="icon nav-btn" title="Hồ sơ">
@@ -370,6 +370,71 @@
 
             globalConnection.start().catch(err => console.error(err));
             }
+            });
+        </script>
+    }
+
+    @if (User.Identity != null && User.Identity.IsAuthenticated && User.IsInRole("Customer"))
+    {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.12/signalr.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+            // 1. Xin quyền hiển thị Push Notification từ Hệ điều hành / Trình duyệt
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+            }
+
+            const customerGlobalConnection = new signalR.HubConnectionBuilder().withUrl("/rideHub").build();
+
+            // 2. Hàm tiện ích gọi Notification API
+            function sendPushNotification(title, body, url) {
+            if ("Notification" in window && Notification.permission === "granted") {
+            const notif = new Notification(title, {
+            body: body,
+            icon: 'https://cdn-icons-png.flaticon.com/512/854/854878.png', // Icon xe hơi
+            vibrate: [200, 100, 200]
+            });
+            notif.onclick = function() {
+            window.focus();
+            if (url) window.location.href = url;
+            };
+            }
+            }
+
+            // --- LẮNG NGHE CÁC SỰ KIỆN HÀNH TRÌNH TỪ SERVER ---
+
+            // Sự kiện A: Tài xế bắt đầu di chuyển tới điểm đón
+            customerGlobalConnection.on("RideAccepted", function (driverName, driverPhone, driverLat, driverLng, licensePlate, vehicleType) {
+            sendPushNotification("Tài xế đang đến!", `Tài xế ${driverName} (${licensePlate}) đang trên đường đón bạn.`, '/Customer/Index');
+            });
+
+            // Sự kiện B: Tài xế ĐÃ TỚI điểm đón
+            customerGlobalConnection.on("DriverArrived", function (dropLat, dropLng) {
+            sendPushNotification("Tài xế đã đến nơi!", "Tài xế của bạn đã có mặt tại điểm đón. Vui lòng di chuyển ra xe nhé.", '/Customer/Index');
+
+            // Nếu khách hàng đang lướt trang khác (Hồ sơ, Lịch sử...), bật luôn popup nhắc nhở
+            let currentPath = window.location.pathname.toLowerCase();
+            if (currentPath !== '/customer/index' && currentPath !== '/customer' && currentPath !== '/') {
+            Swal.fire({
+            title: 'Tài xế đã đến!',
+            text: 'Tài xế của bạn đã có mặt tại điểm đón.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#00b14f',
+            confirmButtonText: 'Xem bản đồ',
+            cancelButtonText: 'Đóng'
+            }).then((result) => {
+            if (result.isConfirmed) window.location.href = '/Customer/Index';
+            });
+            }
+            });
+
+            // Sự kiện C: Hoàn thành chuyến đi
+            customerGlobalConnection.on("RideCompleted", function () {
+            sendPushNotification("Chuyến đi kết thúc", "Cảm ơn bạn đã sử dụng dịch vụ. Chúc bạn một ngày tốt lành!", '/Customer/RideHistory');
+            });
+
+            customerGlobalConnection.start().catch(err => console.error("Global Customer Hub Error: ", err));
             });
         </script>
     }
