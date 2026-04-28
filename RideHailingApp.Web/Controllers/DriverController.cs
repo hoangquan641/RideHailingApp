@@ -108,7 +108,6 @@ namespace RideHailingApp.Web.Controllers
                 VehicleType = user.VehicleType
             };
 
-            // LỖI NẰM Ở ĐÂY: Bắt buộc phải có (model) truyền vào
             return View(model);
         }
 
@@ -118,9 +117,63 @@ namespace RideHailingApp.Web.Controllers
             return View();
         }
 
+        // --- TÍNH NĂNG 1: VÍ VÀ DOANH THU ---
+        [HttpGet]
+        public IActionResult Wallet()
+        {
+            var driverId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+            var driver = _context.Users.Find(driverId);
+
+            // Lấy cuốc xe hoàn thành trong 7 ngày qua để vẽ biểu đồ
+            var sevenDaysAgo = DateTime.Now.Date.AddDays(-6);
+            var recentRides = _context.Rides
+                .Where(r => r.DriverId == driverId && r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Completed && r.CompletedAt >= sevenDaysAgo)
+                .ToList();
+
+            var chartLabels = new List<string>();
+            var chartData = new List<decimal>();
+
+            for (int i = 6; i >= 0; i--)
+            {
+                var date = DateTime.Now.Date.AddDays(-i);
+                chartLabels.Add(date.ToString("dd/MM"));
+                chartData.Add(recentRides.Where(r => r.CompletedAt?.Date == date).Sum(r => r.Fare));
+            }
+
+            ViewBag.ChartLabels = System.Text.Json.JsonSerializer.Serialize(chartLabels);
+            ViewBag.ChartData = System.Text.Json.JsonSerializer.Serialize(chartData);
+            ViewBag.TodayRevenue = recentRides.Where(r => r.CompletedAt?.Date == DateTime.Now.Date).Sum(r => r.Fare);
+
+            return View(driver);
+        }
+
+        // --- TÍNH NĂNG 2: NHIỆM VỤ VÀ CẢNH BÁO ---
+        [HttpGet]
+        public IActionResult Notifications()
+        {
+            var driverId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+
+            // 1. Tính tiến độ nhiệm vụ (Số cuốc hoàn thành hôm nay)
+            int todayCompleted = _context.Rides.Count(r =>
+                r.DriverId == driverId &&
+                r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Completed &&
+                r.CompletedAt != null && r.CompletedAt.Value.Date == DateTime.Now.Date);
+
+            ViewBag.QuestProgress = todayCompleted;
+
+            // 2. Tính tỷ lệ hủy (Cảnh báo)
+            int totalAssigned = _context.Rides.Count(r => r.DriverId == driverId);
+            int totalCancelled = _context.Rides.Count(r => r.DriverId == driverId && r.Status == RideHailingApp.Common.Enums.RideStatusEnum.Cancelled && r.CancelReason != null);
+
+            double cancelRate = totalAssigned > 0 ? ((double)totalCancelled / totalAssigned) * 100 : 0;
+            ViewBag.CancelRate = Math.Round(cancelRate, 1);
+
+            return View();
+        }
+
         //-------------------------- POST ACTIONS -------------------//
         [HttpPost]
-        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, Microsoft.AspNetCore.Http.IFormFile? avatarFile) // <-- BỔ SUNG Ở ĐÂY
+        public async Task<IActionResult> UpdateInfo(RideHailingApp.Common.DTOs.UpdateProfileDTO model, Microsoft.AspNetCore.Http.IFormFile? avatarFile)
         {
             if (ModelState.IsValid)
             {
@@ -129,7 +182,7 @@ namespace RideHailingApp.Web.Controllers
                 {
                     int userId = int.Parse(userIdClaim.Value);
 
-                    // XỬ LÝ LƯU FILE ẢNH (Dùng avatarFile thay vì model.AvatarFile)
+                    // XỬ LÝ LƯU FILE ẢNH
                     if (avatarFile != null)
                     {
                         string folder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot/uploads/avatars");
@@ -207,15 +260,38 @@ namespace RideHailingApp.Web.Controllers
             return RedirectToAction("Index");
         }
 
+        // NÂNG CẤP: Cập nhật doanh thu vào ví khi hoàn thành chuyến đi
         [HttpPost]
         public async Task<IActionResult> CompleteRide(int rideId)
         {
-            var ride = _context.Rides.Find(rideId);
-            ride.Status = RideHailingApp.Common.Enums.RideStatusEnum.Completed;
-            ride.CompletedAt = DateTime.Now;
-            _context.SaveChanges();
-            await _hubContext.Clients.User(ride.CustomerId.ToString()).SendAsync("RideCompleted");
-            return RedirectToAction("Index");
+            // Lấy thông tin chuyến xe kèm theo thông tin Tài xế
+            var ride = _context.Rides.Include(r => r.Driver).FirstOrDefault(r => r.Id == rideId);
+
+            if (ride != null && ride.Status == RideHailingApp.Common.Enums.RideStatusEnum.InProgress)
+            {
+                // 1. Cập nhật trạng thái chuyến xe
+                ride.Status = RideHailingApp.Common.Enums.RideStatusEnum.Completed;
+                ride.CompletedAt = DateTime.Now;
+
+                // 2. CỘNG TIỀN VÀO VÍ TIỀN MẶT CỦA TÀI XẾ
+                if (ride.Driver != null)
+                {
+                    // Cộng tiền cước của chuyến đi này vào số dư hiện tại
+                    ride.Driver.CashBalance += ride.Fare;
+
+                    // Trả tài xế về trạng thái Sẵn sàng nhận cuốc mới
+                    ride.Driver.IsDriverAvailable = true;
+                }
+
+                _context.SaveChanges();
+
+                // 3. Bắn SignalR thông báo cho máy Khách hàng
+                await _hubContext.Clients.User(ride.CustomerId.ToString()).SendAsync("RideCompleted");
+
+                TempData["Success"] = $"Chúc mừng! Bạn đã nhận được {ride.Fare.ToString("N0")}đ vào ví.";
+                return RedirectToAction("Index");
+            }
+            return BadRequest();
         }
 
         [HttpPost]

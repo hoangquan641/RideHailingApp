@@ -40,5 +40,8 @@ namespace RideHailingApp.DAL.Entities
         public bool IsBanned { get; set; } = false; // Phục vụ tính năng Khóa tài khoản
         public string? LicensePlate { get; set; } // Biển số xe
         public string? VehicleType { get; set; }  // Loại xe
+
+        public decimal CashBalance { get; set; } = 0m;
+        public decimal CreditBalance { get; set; } = 0m;
     }
 }

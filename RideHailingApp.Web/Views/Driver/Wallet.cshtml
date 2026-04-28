@@ -1,0 +1,70 @@
+﻿@model RideHailingApp.DAL.Entities.User
+@{
+    ViewData["Title"] = "Ví & Doanh thu";
+}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container-fluid mt-4 px-3 mb-5 pb-5">
+    <h4 class="fw-bold text-dark mb-4">Thu nhập của bạn</h4>
+
+    <div class="glass-panel p-4 mb-3 text-white shadow" style="border-radius: 20px; background: linear-gradient(135deg, #00b14f, #28c76f);">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-medium opacity-75"><i class="bi bi-cash-stack me-1"></i> Ví Tiền Mặt</span>
+            <span class="badge bg-white text-success rounded-pill">Khả dụng</span>
+        </div>
+        <h1 class="fw-bold display-5 mb-0">@Model.CashBalance.ToString("N0")đ</h1>
+        <div class="mt-3 text-end">
+            <button class="btn btn-light btn-sm text-success fw-bold rounded-pill px-3">RÚT TIỀN</button>
+        </div>
+    </div>
+
+    <div class="glass-panel p-3 mb-4 shadow-sm" style="border-radius: 20px; background-color: #f8f9fa;">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <span class="text-secondary small fw-bold d-block"><i class="bi bi-credit-card-2-front-fill me-1"></i> VÍ TÍN DỤNG</span>
+                <span class="fs-5 fw-bold text-dark">@Model.CreditBalance.ToString("N0")đ</span>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" disabled>NẠP THÊM (Sắp có)</button>
+        </div>
+    </div>
+
+    <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-bar-chart-fill me-1"></i> BIỂU ĐỒ 7 NGÀY QUA</h6>
+    <div class="glass-panel p-3 shadow-sm mb-3" style="border-radius: 16px;">
+        <div class="d-flex justify-content-between mb-3">
+            <span class="text-muted small">Hôm nay</span>
+            <span class="fw-bold text-success">@ViewBag.TodayRevenue.ToString("N0")đ</span>
+        </div>
+        <canvas id="revenueChart" height="200"></canvas>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    const labels = @Html.Raw(ViewBag.ChartLabels);
+    const data = @Html.Raw(ViewBag.ChartData);
+
+    new Chart(ctx, {
+    type: 'bar',
+    data: {
+    labels: labels,
+    datasets: [{
+    label: 'Doanh thu (VNĐ)',
+    data: data,
+    backgroundColor: '#00b14f',
+    borderRadius: 6,
+    barThickness: 20
+    }]
+    },
+    options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+    y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
+    x: { grid: { display: false } }
+    }
+    }
+    });
+    });
+</script>
